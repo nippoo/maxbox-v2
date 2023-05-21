@@ -1,0 +1,31 @@
+menu "MaxBox"
+config ESP_WIFI_SSID
+    string "WiFi SSID"
+    default "my-wifi-ssid"
+    help
+    	SSID (network name) to connect to.
+
+config ESP_WIFI_PASSWORD
+    string "WiFi Password"
+    default "correcthorsebatterystaple"
+    help
+        WiFi password (WPA or WPA2) to use.
+
+config MAXBOX_API_ROOT
+    string "API endpoint root"
+    default "http://127.0.0.1/api/v1/"
+    help
+        API endpoint, with trailing slash e.g. http://127.0.0.1/api/v1/
+
+config MAXBOX_API_SECRET
+    string "API secret"
+    default "maxb0x_secr3t"
+    help
+        Secret for API requests
+
+config MAXBOX_FW_VERSION
+    string "Firmware version"
+    default "1"
+    help
+        Firmware version to report as API header
+endmenu
