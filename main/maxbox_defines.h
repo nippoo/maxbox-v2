@@ -4,6 +4,8 @@
 extern "C" {
 #endif
 
+#include "driver/spi_master.h"
+
 // User config
 
 #define TAG_CHECK_INTERVAL_MS       	500
@@ -65,8 +67,8 @@ typedef struct {
 
 struct maxbox {
 	telemetry_t* tel;
-    int operator_car_lock;
-    char operator_card_list[MAX_OPERATOR_CARDS][9];
+    char operator_card_list[MAX_OPERATOR_CARDS][9];     /*<! List of operator card IDs */
+    bool lock_desired;                                  /*<! Desired lock status (0: unlocked, 1: locked) */
 };
 
 typedef struct maxbox* maxbox_t;

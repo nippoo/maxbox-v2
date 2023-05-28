@@ -64,6 +64,7 @@ void app_main(void)
     led_init();
     touch_init();
     sim7600_init();
+    vehicle_init();
 
     xTaskCreate(main_task, "main_task", 4096, NULL, 6, NULL);
 

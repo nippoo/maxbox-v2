@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "rc522.h"
+#include "vehicle.h"
 
 #include "maxbox_defines.h"
 
@@ -39,20 +40,20 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
 
     ESP_LOGI(TAG, "Detected card %s", card_id);
 
+    mb->lock_desired = !mb->lock_desired;
+
+    vehicle_un_lock();
+
     // first let's check if this is a tag in our operator card list
     int i;
     for (i=0; i<MAX_OPERATOR_CARDS; i++)
     {
         if (strcmp(mb->operator_card_list[i], card_id) == 0)
         {
-            if (mb->operator_car_lock == 0)
-            {
-                ESP_LOGI(TAG, "Operator card detected, locking");
-            }
-            else
-            {
-                ESP_LOGI(TAG, "Operator card detected, unlocking");
-            }
+            ESP_LOGI(TAG, "Operator card detected");
+            mb->lock_desired = !mb->lock_desired;
+            vehicle_un_lock();
+            break;
         }
     }
 }

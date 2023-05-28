@@ -9,7 +9,7 @@
 #include "vehicle.h"
 #include "led.h"
 
-static const char* TAG = "MaxBox-Vehicle";
+static const char* TAG = "MaxBox-vehicle";
 
 void can_receive_task(void *arg)
 {
@@ -49,10 +49,8 @@ static void send_can(twai_message_t message)
     twai_transmit(&message, pdMS_TO_TICKS(100));
 }
 
-static void un_lock(void *xParameters)
+static void un_lock()
 {
-    const uint8_t *lock = (uint8_t *) xParameters;
-
     twai_message_t packet1;
     packet1.identifier = 0x745;
     packet1.data_length_code = 8;
@@ -92,8 +90,7 @@ static void un_lock(void *xParameters)
     packetlock.data[6] = 0xff;
     packetlock.data[7] = 0xff;
 
-
-    if(*lock)
+    if(mb->lock_desired)
     {
         ESP_LOGI(TAG, "Transmitting lock CAN packet");
         packetlock.data[4] = 0x01;
@@ -134,17 +131,13 @@ static void un_lock(void *xParameters)
     vTaskDelay(500 / portTICK_PERIOD_MS);
     send_can(packet1);
 
-    if(*lock)
+    if(mb->lock_desired)
     {
         ESP_LOGI(TAG, "Car locked");
         led_update(LOCKING);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        led_update(IDLE);
     } else {
         ESP_LOGI(TAG, "Car unlocked");
         led_update(UNLOCKING);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        led_update(IDLE);
     }
 
     vTaskDelete(NULL);
@@ -162,39 +155,32 @@ esp_err_t vehicle_init()
     }
 
     //Initialize configuration structures using macro initializers
-    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_15, GPIO_NUM_13, TWAI_MODE_NORMAL);
+    twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(CAN_TX_PIN, CAN_RX_PIN, TWAI_MODE_NORMAL);
     twai_timing_config_t t_config = TWAI_TIMING_CONFIG_500KBITS();
     twai_filter_config_t f_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
+    g_config.intr_flags = ESP_INTR_FLAG_LOWMED;
+
     //Install CAN driver
     if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        printf("Driver installed\n");
+        ESP_LOGI(TAG, "Driver installed");
     } else {
-        printf("Failed to install driver\n");
+        ESP_LOGE(TAG, "Failed to install driver");
         return ESP_FAIL;
     }
 
     //Start CAN driver
     if (twai_start() == ESP_OK) {
-        printf("Driver started\n");
+        ESP_LOGI(TAG, "Driver started");
     } else {
-        printf("Failed to start driver\n");
+        ESP_LOGE(TAG, "Failed to start driver");
         return ESP_FAIL;
     }
 
     return ESP_OK;
 }
 
-void vehicle_lock_doors()
+void vehicle_un_lock()
 {
-    ESP_LOGI(TAG, "Locking car");
-    xTaskCreate(&un_lock, "lock_car", 8192, NULL, 3, NULL);
-    return;
-}
-
-void vehicle_unlock_doors()
-{
-    ESP_LOGI(TAG, "Unlocking car");
-    xTaskCreate(&un_lock, "unlock_car", 8192, NULL, 3, NULL);
-    return;
+    xTaskCreate(&un_lock, "un_lock", 8192, NULL, 2, NULL);
 }

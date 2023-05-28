@@ -21,14 +21,9 @@ void can_receive_task(void *arg);
 esp_err_t vehicle_init();
 
 /**
- * @brief Lock vehicle doors
+ * @brief Lock / unlock vehicle doors, depending on mb->lock_desired
  */
-void vehicle_lock_doors();
-
-/**
- * @brief Unlock vehicle doors
- */
-void vehicle_unlock_doors();
+void vehicle_un_lock();
 
 #ifdef __cplusplus
 }
