@@ -6,7 +6,11 @@ extern "C" {
 
 // User config
 
+#define TAG_CHECK_INTERVAL_MS       	500
+
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
+
+#define MAX_OPERATOR_CARDS          	32
 
 // GPIO
 
@@ -48,10 +52,26 @@ extern "C" {
 #define RFID_SPI_HOST_ID     SPI2_HOST
 #define LORA_SPI_HOST_ID     SPI3_HOST
 
+// Shared data structs
 
-// FreeRTOS task priority
+typedef struct {
+	pthread_mutex_t telemetrymux;
+	int8_t doors_locked;                   /*<! 1 = doors locked, 0 = doors unlocked */
+    int32_t odometer_miles;                /*<! current odometer reading, in miles */
+    float aux_battery_voltage;             /*<! standby battery voltage, from ADC */
+    float soc_percent;                     /*<! HV state of charge, in percent */
+    char ibutton_id[17];                   /*<! ID of iButton currently attached */
+} telemetry_t;
 
+struct maxbox {
+	telemetry_t* tel;
+    int operator_car_lock;
+    char operator_card_list[MAX_OPERATOR_CARDS][9];
+};
 
+typedef struct maxbox* maxbox_t;
+
+extern maxbox_t mb;
 
 #ifdef __cplusplus
 }

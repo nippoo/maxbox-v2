@@ -13,7 +13,7 @@ esp_err_t sim7600_init();
 /**
  * @brief Destroy SIM7600 instance and free all resources
  */
-// void sim7600_destroy();
+void sim7600_destroy();
 
 #ifdef __cplusplus
 }

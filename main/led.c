@@ -18,6 +18,18 @@ static const char* TAG = "MaxBox-LED";
 
 void led_init(void)
 {
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = SDA_PIN,
+        .scl_io_num = SCL_PIN,
+        .sda_pullup_en = GPIO_PULLUP_ENABLE,
+        .scl_pullup_en = GPIO_PULLUP_ENABLE,
+        .master.clk_speed = 400000,
+    };
+
+    i2c_param_config(I2C_HOST_ID, &conf);
+    i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, 0);
+
     const ktd2064_start_args_t ktd2064_start_args = {
         .i2c_addr = 0x6C,
         .i2c_host_id = I2C_HOST_ID,
@@ -41,6 +53,8 @@ void led_init(void)
     }
 
     xTaskCreate(led_task, "led_task", 4096, NULL, 6, NULL);
+
+    led_update(BOOT);
 }
 
 void led_update(led_status_t st)

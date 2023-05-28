@@ -4,6 +4,8 @@ set(COMPONENT_PRIV_REQUIRES )
 
 set(COMPONENT_SRCS "main.c"
 				   "led.c"
+				   "touch.c"
+				   "vehicle.c"
 				   "rc522.c"
 				   "owb.c"
 				   "owb_rmt.c"
