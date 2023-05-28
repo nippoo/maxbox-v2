@@ -134,10 +134,10 @@ static void un_lock()
     if(mb->lock_desired)
     {
         ESP_LOGI(TAG, "Car locked");
-        led_update(LOCKING);
+        led_update(LOCKED);
     } else {
         ESP_LOGI(TAG, "Car unlocked");
-        led_update(UNLOCKING);
+        led_update(UNLOCKED);
     }
 
     vTaskDelete(NULL);

@@ -122,9 +122,21 @@ void led_task(void *args)
                     break;
                 case PROCESSING:
                     ktd2064_set_color0(255, 255, 255); // cyan
-                    ktd2064_set_color1(0, 0, 0); // deep blue
+                    ktd2064_set_color1(0, 0, 0);
                     ktd2064_select_all_color1();
                     ktd2064_global_on(2);
+                    break;
+                case LOCKED:
+                    ktd2064_set_color0(0, 0, 0);
+                    ktd2064_set_color1(0, 0, 255); // blue
+                    ktd2064_select_all_color1();
+                    ktd2064_global_on(0);
+                    break;
+                case UNLOCKED:
+                    ktd2064_set_color0(0, 0, 0);
+                    ktd2064_set_color1(0, 255, 0); // green
+                    ktd2064_select_all_color1();
+                    ktd2064_global_on(0);
                     break;
                 default:
                     break;
@@ -143,6 +155,14 @@ void led_task(void *args)
             break;
         case PROCESSING:
             led_swirl(160, elapsed_ms);
+            break;
+        case LOCKED:
+            if (elapsed_ms > 3000)
+                led_update(IDLE);
+            break;
+        case UNLOCKED:
+            if (elapsed_ms > 3000)
+                led_update(IDLE);
             break;
         default:
             break;
