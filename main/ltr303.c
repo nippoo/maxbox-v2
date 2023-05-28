@@ -95,9 +95,12 @@ esp_err_t ltr303_init(const ltr303_config_t* config) {
     hndl->is_running = true;
 
     ltr303_set_gain(config->gain);
+
+    vTaskDelay(pdMS_TO_TICKS(10)); // wait 10ms after startup, as per datasheet
+
     ltr303_set_measurement_rate(config->integration_time, config->measurement_rate);
 
-    vTaskDelay(pdMS_TO_TICKS(10)); // wait 10ms before reading, as per datasheet
+    vTaskDelay(pdMS_TO_TICKS(30)); // wait 30ms before first read (first reading was often 0)
 
     ESP_LOGI(TAG, "Initialized");
 
@@ -129,94 +132,98 @@ void ltr303_set_measurement_rate(uint8_t integration_time, uint8_t measurement_r
 uint16_t ltr303_read_lux()
 {
     uint8_t ch1_low = ltr303_read(0x88);
-    uint16_t CH1 = (ltr303_read(0x89) << 8) + ch1_low;
+    uint16_t ch1 = (ltr303_read(0x89) << 8) + ch1_low;
 
     uint8_t ch0_low = ltr303_read(0x8A);
-    uint16_t CH0 = (ltr303_read(0x8B) << 8) + ch0_low;
+    uint16_t ch0 = (ltr303_read(0x8B) << 8) + ch0_low;
 
-
-    double ratio, ALS_INT;
+    double ratio, als_int;
     uint16_t lux;
-    uint8_t ALS_GAIN;
+    uint8_t als_gain;
     
     // Determine if either sensor saturated (0xFFFF)
     // If so, abandon ship (calculation will not be accurate)
-    if ((CH0 == 0xFFFF) || (CH1 == 0xFFFF)) {
+    if ((ch0 == 0xFFFF) || (ch1 == 0xFFFF)) {
+        lux = 0.0;
+        return(false);
+    }
+
+    if ((ch0 == 0) || (ch1 == 0)) {
         lux = 0.0;
         return(false);
     }
 
     // We will need the ratio for subsequent calculations
-    ratio = CH1 / (CH0 + CH1);
+    ratio = ch1 / (ch0 + ch1);
 
 
   // Gain can take any value from 0-7, except 4 & 5
   // If gain = 4, invalid
   // If gain = 5, invalid
     switch(hndl->config->gain){
-        case 0:            // If gain = 0, device is set to 1X gain (default)
-            ALS_GAIN = 1;
+        case 0:              // If gain = 0, device is set to 1X gain (default)
+            als_gain = 1;
             break;
-        case 1:            // If gain = 1, device is set to 2X gain
-            ALS_GAIN = 2;
+        case 1:              // If gain = 1, device is set to 2X gain
+            als_gain = 2;
             break;
-        case 2:           // If gain = 2, device is set to 4X gain   
-            ALS_GAIN = 4;
+        case 2:              // If gain = 2, device is set to 4X gain   
+            als_gain = 4;
             break;
-        case 3:           // If gain = 3, device is set to 8X gain    
-            ALS_GAIN = 8;
+        case 3:              // If gain = 3, device is set to 8X gain    
+            als_gain = 8;
             break;
-        case 6:          // If gain = 6, device is set to 48X gain
-            ALS_GAIN = 48;
+        case 6:              // If gain = 6, device is set to 48X gain
+            als_gain = 48;
             break;  
-        case 7:           // If gain = 7, device is set to 96X gain  
-            ALS_GAIN = 96;
+        case 7:              // If gain = 7, device is set to 96X gain  
+            als_gain = 96;
             break;
-        default:          // If gain = 0, device is set to 1X gain (default)         
-            ALS_GAIN = 1;
+        default:             // If gain = 0, device is set to 1X gain (default)         
+            als_gain = 1;
             break;
     }
 
 
     switch(hndl->config->integration_time){
         case 0:              // If integrationTime = 0, integrationTime will be 100ms (default)
-            ALS_INT = 1;
+            als_int = 1;
             break;
         case 1:              // If integrationTime = 1, integrationTime will be 50ms
-            ALS_INT = 0.5;
+            als_int = 0.5;
             break;
         case 2:              // If integrationTime = 2, integrationTime will be 200ms
-            ALS_INT = 2;
+            als_int = 2;
             break;
-        case 3:               // If integrationTime = 3, integrationTime will be 400ms
-            ALS_INT = 4;
+        case 3:              // If integrationTime = 3, integrationTime will be 400ms
+            als_int = 4;
             break;
-        case 4:               // If integrationTime = 4, integrationTime will be 150ms
-            ALS_INT = 1.5;
+        case 4:              // If integrationTime = 4, integrationTime will be 150ms
+            als_int = 1.5;
             break;
-        case 5:               // If integrationTime = 5, integrationTime will be 250ms
-            ALS_INT = 2.5;
+        case 5:              // If integrationTime = 5, integrationTime will be 250ms
+            als_int = 2.5;
             break;
-        case 6:               // If integrationTime = 6, integrationTime will be 300ms
-            ALS_INT = 3;
+        case 6:              // If integrationTime = 6, integrationTime will be 300ms
+            als_int = 3;
             break;  
-        case 7:               // If integrationTime = 7, integrationTime will be 350ms
-            ALS_INT = 3.5;
+        case 7:              // If integrationTime = 7, integrationTime will be 350ms
+            als_int = 3.5;
             break;
         default:             // If integrationTime = 0, integrationTime will be 100ms (default)
-            ALS_INT = 1;
+            als_int = 1;
             break;
         }
 
     // Determine lux per datasheet equations:
     if (ratio < 0.45) {
-        lux = ((1.7743 * CH0) + (1.1059 * CH1))/ALS_GAIN/ALS_INT;
+        lux = ((1.7743 * ch0) + (1.1059 * ch1))/als_gain/als_int;
     }
     else if ((ratio < 0.64) && (ratio >= 0.45)){
-        lux = ((4.2785 * CH0) + (1.9548 * CH1))/ALS_GAIN/ALS_INT;
+        lux = ((4.2785 * ch0) + (1.9548 * ch1))/als_gain/als_int;
     }
     else if ((ratio < 0.85) && (ratio >= 0.64)){
-        lux = ((0.5926 * CH0) + (0.1185 * CH1))/ALS_GAIN/ALS_INT;
+        lux = ((0.5926 * ch0) + (0.1185 * ch1))/als_gain/als_int;
     }
     // if (ratio >= 0.85)
     else {  
