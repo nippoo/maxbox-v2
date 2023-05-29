@@ -33,7 +33,7 @@ esp_netif_t *esp_netif;
 
 const char *TAG = "MaxBox-SIM7600";
 
-void config_gpio()
+static void config_gpio()
 {
     gpio_set_direction(SIM_RESET_PIN, GPIO_MODE_OUTPUT);
     gpio_set_direction(SIM_PWRKEY_PIN, GPIO_MODE_OUTPUT);
@@ -43,7 +43,7 @@ void config_gpio()
     gpio_set_level(SIM_PWRKEY_PIN, 0);
 }
 
-void power_on_modem(esp_modem_dce_t *dce)
+static void power_on_modem(esp_modem_dce_t *dce)
 {
      // Power on the modem 
     ESP_LOGI(TAG, "Sending SIM7600 power-on pulse");
@@ -52,7 +52,7 @@ void power_on_modem(esp_modem_dce_t *dce)
     gpio_set_level(SIM_PWRKEY_PIN, 0);
 }
 
-void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
+static void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
 {
     ESP_LOGI(TAG, "Waiting for SIM7600 to boot for up to %is...", count);
     for (int i = 0; i < count; i++)
@@ -66,29 +66,22 @@ void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
     }
 }
 
-void check_connectivity(esp_modem_dce_t *dce)
+void sim7600_check_connectivity()
 {
     char data[BUF_SIZE];
     int rssi, ber;
     CHECK_ERR(esp_modem_get_signal_quality(dce, &rssi, &ber), ESP_LOGI(TAG, "OK. rssi=%d, ber=%d", rssi, ber));
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
-
     CHECK_ERR(esp_modem_at(dce, "AT+CPSMS?", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPSCOLD", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-
     CHECK_ERR(esp_modem_at(dce, "AT+CPSI?", data, 500), ESP_LOGI(TAG, "OK. %s", data));             // Inquiring UE system information
-    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Activate the APP network
-    // CHECK_ERR(esp_modem_at(dce, "AT+SNPDPID=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Select PDP index for PING
-    // CHECK_ERR(esp_modem_at(dce, "AT+SNPING4=\"8.8.8.8\",3,16,1000", data, 500), ESP_LOGI(TAG, "OK. %s", data));     // Send IPv4 PING
-    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Deactivate the APP network
-
-    CHECK_ERR(esp_modem_get_signal_quality(dce, &rssi, &ber), ESP_LOGI(TAG, "OK. rssi=%d, ber=%d", rssi, ber));
+    CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Activate the APP network
+    CHECK_ERR(esp_modem_at(dce, "AT+SNPDPID=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Select PDP index for PING
+    CHECK_ERR(esp_modem_at(dce, "AT+SNPING4=\"8.8.8.8\",3,16,1000", data, 500), ESP_LOGI(TAG, "OK. %s", data));     // Send IPv4 PING
+    CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Deactivate the APP network
     CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFO", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+}
 
+void sim7600_send_sms(char* number, char* text)
+{
     if (esp_modem_sms_txt_mode(dce, true) != ESP_OK || esp_modem_sms_character_set(dce) != ESP_OK) {
         ESP_LOGE(TAG, "Setting text mode or GSM character set failed");
         return;
@@ -100,7 +93,7 @@ void check_connectivity(esp_modem_dce_t *dce)
 
     ESP_LOGI(TAG, "Successfully set character mode. Now sending SMS");
 
-    esp_err_t err = esp_modem_send_sms(dce, "+447533709265", "Hello, MaxBox world!");
+    esp_err_t err = esp_modem_send_sms(dce, number, text);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "esp_modem_send_sms() failed with %d", err);
         return;
@@ -109,7 +102,12 @@ void check_connectivity(esp_modem_dce_t *dce)
     {
         ESP_LOGI(TAG, "Successfully sent SMS");
     }
+}
 
+void sim7600_gps_start()
+{
+    char data[BUF_SIZE];
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPSCOLD", data, 500), ESP_LOGI(TAG, "OK. %s", data));
 }
 
 esp_err_t sim7600_init()
@@ -141,7 +139,6 @@ esp_err_t sim7600_init()
     power_on_modem(dce);
 
     wait_for_sync(dce, 15);
-    check_connectivity(dce);
 
     return ESP_OK;
 }

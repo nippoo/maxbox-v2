@@ -8,6 +8,7 @@
 #include "esp_log.h"
 
 #include "rc522.h"
+#include "led.h"
 #include "vehicle.h"
 
 #include "maxbox_defines.h"
@@ -34,6 +35,7 @@ void touch_init(void)
 void touch_handler(void *serial_no) // serial number is always 4 bytes long
 {
     const uint8_t* sn = (uint8_t *) serial_no;
+    led_update(PROCESSING);
 
     char card_id[9];
     sprintf(card_id, "%02x%02x%02x%02x", sn[0], sn[1], sn[2], sn[3]);
