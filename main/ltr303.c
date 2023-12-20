@@ -44,10 +44,13 @@ static uint8_t ltr303_read(uint8_t addr) {
 
     esp_err_t ret = i2c_master_write_read_device(hndl->config->i2c_host_id,
         hndl->config->i2c_addr, &addr, 1, buffer, 1, hndl->config->i2c_timeout_ms / portTICK_PERIOD_MS);
-    assert(ret == ESP_OK);
-
-    uint8_t res = buffer[0];
-    return res;
+    if(ret == ESP_OK) {
+        uint8_t res = buffer[0];
+        return res;
+    }
+    else {
+        return ret;
+    }
 }
 
 static void ltr303_write_control_reg()
@@ -131,6 +134,10 @@ void ltr303_set_measurement_rate(uint8_t integration_time, uint8_t measurement_r
 
 uint16_t ltr303_read_lux()
 {
+    if (! hndl) {
+        return(false);
+    }
+
     uint8_t ch1_low = ltr303_read(0x88);
     uint16_t ch1 = (ltr303_read(0x89) << 8) + ch1_low;
 
