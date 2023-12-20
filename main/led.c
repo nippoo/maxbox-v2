@@ -5,7 +5,7 @@
 #include "led.h"
 #include "esp_log.h"
 
-#include "ktd2064.h"
+#include "lp50xx.h"
 #include "ltr303.h"
 
 #include "maxbox_defines.h"
@@ -30,20 +30,15 @@ void led_init(void)
     i2c_param_config(I2C_HOST_ID, &conf);
     i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, 0);
 
-    const ktd2064_start_args_t ktd2064_start_args = {
-        .i2c_addr = 0x6C,
+    const lp50xx_start_args_t lp50xx_start_args = {
+        .i2c_addr = 0x28,
         .i2c_host_id = I2C_HOST_ID,
-        .i2c_timeout_ms = 1000,
-        .max_current_r_ma = 15,
-        .max_current_g_ma = 24,
-        .max_current_b_ma = 24
     };
 
-    ktd2064_init(&ktd2064_start_args);
+    lp50xx_init(&lp50xx_start_args);
 
     const ltr303_start_args_t ltr303_start_args = {
         .i2c_host_id = I2C_HOST_ID,
-        .i2c_timeout_ms = 1000,
     };
 
     ltr303_init(&ltr303_start_args);
@@ -71,12 +66,12 @@ void led_update(led_status_t st)
     if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX)
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, night mode", lux);
-        ktd2064_set_night_mode(true);
+        lp50xx_set_night_mode(true);
     }
     else
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, full brightness", lux);
-        ktd2064_set_night_mode(false);        
+        lp50xx_set_night_mode(false);
     }
 }
 
@@ -84,19 +79,22 @@ static void led_swirl(uint16_t interval_ms, uint64_t elapsed_ms)
 {
     // note: interval_ms must be even, and divisible exactly by elapsed_ms
 
-    uint8_t j = ((elapsed_ms + interval_ms) % (interval_ms * 4)) / interval_ms;
+    // uint8_t j = ((elapsed_ms + interval_ms) % (interval_ms * 4)) / interval_ms;
 
-    if (elapsed_ms % interval_ms == 0)
-    {
-        ktd2064_select_one(3 - j, 0xFF);
-        j = (j + 1) % 4;
-        ktd2064_select_one(3 - j, 0x08);
-    }
-    else if (elapsed_ms % interval_ms == interval_ms / 2)
-    {
-        j = (j + 1) % 4;
-        ktd2064_select_one(3 - j, 0x8F);
-    }
+    lp50xx_set_color_bank(0, 255, ((elapsed_ms / interval_ms) % 255));
+}
+
+static void led_breathe(uint16_t period_ms, uint64_t elapsed_ms,
+    uint8_t red, uint8_t green, uint8_t blue)
+{
+    int16_t curr_period = (elapsed_ms-(period_ms/4)) % period_ms - period_ms/2;
+    float multiplier = ((float)2/period_ms)*abs(curr_period);
+
+    uint8_t cur_red = (red*multiplier);
+    uint8_t cur_green = (green*multiplier);
+    uint8_t cur_blue = (blue*multiplier);
+
+    lp50xx_set_color_bank(cur_red, cur_green, cur_blue);
 }
 
 void led_task(void *args)
@@ -112,31 +110,28 @@ void led_task(void *args)
                 switch(led_status)
                 {
                 case BOOT:
-                    ktd2064_set_color0(0, 255, 255); // cyan
-                    ktd2064_set_color1(0, 0, 20); // deep blue
-                    ktd2064_select_all_color1();
-                    ktd2064_global_on(3);
+                    lp50xx_set_global_on(1);
                     break;
                 case IDLE:
-                    ktd2064_global_off(0);
+                    lp50xx_set_global_on(0);
                     break;
                 case PROCESSING:
-                    ktd2064_set_color0(255, 255, 255); // cyan
-                    ktd2064_set_color1(0, 0, 0);
-                    ktd2064_select_all_color1();
-                    ktd2064_global_on(2);
+                    // ktd2064_set_color0(255, 255, 255); // cyan
+                    // ktd2064_set_color1(0, 0, 0);
+                    // ktd2064_select_all_color1();
+                    // ktd2064_global_on(2);
                     break;
                 case LOCKED:
-                    ktd2064_set_color0(0, 0, 0);
-                    ktd2064_set_color1(0, 0, 255); // blue
-                    ktd2064_select_all_color1();
-                    ktd2064_global_on(0);
+                    // ktd2064_set_color0(0, 0, 0);
+                    // ktd2064_set_color1(0, 0, 255); // blue
+                    // ktd2064_select_all_color1();
+                    // ktd2064_global_on(0);
                     break;
                 case UNLOCKED:
-                    ktd2064_set_color0(0, 0, 0);
-                    ktd2064_set_color1(0, 255, 0); // green
-                    ktd2064_select_all_color1();
-                    ktd2064_global_on(0);
+                    // ktd2064_set_color0(0, 0, 0);
+                    // ktd2064_set_color1(0, 255, 0); // green
+                    // ktd2064_select_all_color1();
+                    // ktd2064_global_on(0);
                     break;
                 default:
                     break;
@@ -151,10 +146,10 @@ void led_task(void *args)
         switch(led_status)
         {
         case BOOT:
-            led_swirl(320, elapsed_ms);
+            led_breathe(1000, elapsed_ms, 0, 200, 255);
             break;
         case PROCESSING:
-            led_swirl(160, elapsed_ms);
+            led_swirl(16, elapsed_ms);
             break;
         case LOCKED:
             if (elapsed_ms > 3000)

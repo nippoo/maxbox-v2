@@ -9,7 +9,7 @@ set(COMPONENT_SRCS "main.c"
 				   "rc522.c"
 				   "owb.c"
 				   "owb_rmt.c"
-				   "ktd2064.c"
+				   "lp50xx.c"
 				   "ltr303.c"
 				   "sim7600.c")
 				   
