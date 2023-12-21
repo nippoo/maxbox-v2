@@ -16,7 +16,7 @@ static const char* TAG = "ESP-LP50XX";
 
 struct lp50xx {
     lp50xx_config_t* config;
-    bool night_mode;
+    float brightness_scale;
 };
 
 typedef struct lp50xx* lp50xx_handle_t;
@@ -78,38 +78,53 @@ esp_err_t lp50xx_init(const lp50xx_config_t* config) {
     // set Chip_EN on
     lp50xx_write(0x00, 0b01000000);
 
-    lp50xx_set_night_mode(0);
+    lp50xx_set_global_scale(1.0);
 
     // write to control register
-    lp50xx_set_global_on(0);
+    lp50xx_set_global_off(1);
 
     ESP_LOGI(TAG, "Initialized");
 
     return ESP_OK;
 }
 
-void lp50xx_set_night_mode(bool night_mode)
+void lp50xx_set_global_scale(float scale)
 {
-    hndl->night_mode = night_mode;
+    hndl->brightness_scale = scale;
 }
 
-esp_err_t lp50xx_set_global_on(bool global_on)
+esp_err_t lp50xx_set_global_off(bool global_off)
 {
-    uint8_t control_reg = (global_on & 0b00000001)
+    uint8_t control_reg = (global_off & 0b00000001)
         + (hndl->config->max_current << 1 & 0b00000010)
         + (hndl->config->pwm_dim_enabled << 2 & 0b00000100)
         + (hndl->config->powersave_enabled << 4 & 0b00010000)
         + (hndl->config->log_dim_enabled << 5 & 0b00100000);
 
-    return lp50xx_write(0x02, 0b11111111);
     return lp50xx_write(0x01, control_reg);
+}
+
+esp_err_t lp50xx_set_bank_control(bool bank_control)
+{
+    if (bank_control) {
+        return lp50xx_write(0x02, 0b11111111);
+    } else {
+        return lp50xx_write(0x02, 0b00000000);
+    }
 }
 
 void lp50xx_set_color_bank(uint8_t red, uint8_t green, uint8_t blue)
 {
-    lp50xx_write(0x04, red);
-    lp50xx_write(0x05, green);
-    lp50xx_write(0x06, blue);
+    lp50xx_write(0x04, red*hndl->brightness_scale);
+    lp50xx_write(0x05, green*hndl->brightness_scale);
+    lp50xx_write(0x06, blue*hndl->brightness_scale);
+}
+
+void lp50xx_set_color_led(uint8_t led, uint8_t red, uint8_t green, uint8_t blue)
+{
+    lp50xx_write((led*3)+0x0F, red*hndl->brightness_scale);
+    lp50xx_write((led*3)+0x10, green*hndl->brightness_scale);
+    lp50xx_write((led*3)+0x11, blue*hndl->brightness_scale);
 }
 
 void lp50xx_destroy() {

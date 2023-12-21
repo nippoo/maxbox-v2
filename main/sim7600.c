@@ -70,13 +70,13 @@ void sim7600_check_connectivity()
 {
     char data[BUF_SIZE];
     int rssi, ber;
-    CHECK_ERR(esp_modem_get_signal_quality(dce, &rssi, &ber), ESP_LOGI(TAG, "OK. rssi=%d, ber=%d", rssi, ber));
-    CHECK_ERR(esp_modem_at(dce, "AT+CPSMS?", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-    CHECK_ERR(esp_modem_at(dce, "AT+CPSI?", data, 500), ESP_LOGI(TAG, "OK. %s", data));             // Inquiring UE system information
-    CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Activate the APP network
-    CHECK_ERR(esp_modem_at(dce, "AT+SNPDPID=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Select PDP index for PING
-    CHECK_ERR(esp_modem_at(dce, "AT+SNPING4=\"8.8.8.8\",3,16,1000", data, 500), ESP_LOGI(TAG, "OK. %s", data));     // Send IPv4 PING
-    CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Deactivate the APP network
+    // CHECK_ERR(esp_modem_get_signal_quality(dce, &rssi, &ber), ESP_LOGI(TAG, "OK. rssi=%d, ber=%d", rssi, ber));
+    // CHECK_ERR(esp_modem_at(dce, "AT+CPSMS?", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    // CHECK_ERR(esp_modem_at(dce, "AT+CPSI?", data, 500), ESP_LOGI(TAG, "OK. %s", data));             // Inquiring UE system information
+    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Activate the APP network
+    // CHECK_ERR(esp_modem_at(dce, "AT+SNPDPID=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Select PDP index for PING
+    // CHECK_ERR(esp_modem_at(dce, "AT+SNPING4=\"8.8.8.8\",3,16,1000", data, 500), ESP_LOGI(TAG, "OK. %s", data));     // Send IPv4 PING
+    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Deactivate the APP network
     CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFO", data, 500), ESP_LOGI(TAG, "OK. %s", data));
 }
 
@@ -107,6 +107,7 @@ void sim7600_send_sms(char* number, char* text)
 void sim7600_gps_start()
 {
     char data[BUF_SIZE];
+    ESP_LOGI(TAG, "Turning GPS on");
     CHECK_ERR(esp_modem_at(dce, "AT+CGPSCOLD", data, 500), ESP_LOGI(TAG, "OK. %s", data));
 }
 
@@ -123,12 +124,12 @@ esp_err_t sim7600_init()
 
     dte_config.uart_config.tx_io_num = SIM_TXD_PIN;
     dte_config.uart_config.rx_io_num = SIM_RXD_PIN;
-    dte_config.uart_config.rx_buffer_size = 512;
+    dte_config.uart_config.rx_buffer_size = 1024;
     dte_config.uart_config.tx_buffer_size = 1024;
     dte_config.uart_config.event_queue_size = 30;
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;
-    dte_config.dte_buffer_size = 256;
+    dte_config.dte_buffer_size = 512;
 
     ESP_LOGI(TAG, "Initializing esp_modem for SIM7600...");
     dce = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
@@ -139,6 +140,8 @@ esp_err_t sim7600_init()
     power_on_modem(dce);
 
     wait_for_sync(dce, 15);
+
+    sim7600_gps_start();
 
     return ESP_OK;
 }

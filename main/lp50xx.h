@@ -10,9 +10,9 @@ extern "C" {
 #define LP50XX_DEFAULT_I2C_HOST_ID          0
 #define LP50XX_DEFAULT_I2C_TIMEOUT_MS       1000
 #define LP50XX_DEFAULT_MAX_CURRENT          0
-#define LP50XX_DEFAULT_POWERSAVE_ENABLED    1
-#define LP50XX_DEFAULT_LOG_DIM_ENABLED      1
-#define LP50XX_DEFAULT_PWM_DIM_ENABLED      1
+#define LP50XX_DEFAULT_POWERSAVE_ENABLED    0
+#define LP50XX_DEFAULT_LOG_DIM_ENABLED      0
+#define LP50XX_DEFAULT_PWM_DIM_ENABLED      0
 
 
 typedef struct {
@@ -48,20 +48,34 @@ void lp50xx_destroy();
 /**
  * @brief Turn all LEDs on
  */
-esp_err_t lp50xx_set_global_on(bool global_on);
+esp_err_t lp50xx_set_global_off(bool global_off);
+
+/**
+ * @brief Enable/disable bank control (0 = individual control)
+ */
+esp_err_t lp50xx_set_bank_control(bool bank_control);
 
 /**
  * @brief Enable/disable night mode
  */
-void lp50xx_set_night_mode(bool night_mode);
+void lp50xx_set_global_scale(float scale);
 
 /**
- * @brief Set palette colour 0
+ * @brief Set bank colour
  * @param red Red intensity (0-255)
  * @param green Green intensity (0-255)
  * @param blue Blue intensity (0-255)
  */
 void lp50xx_set_color_bank(uint8_t red, uint8_t green, uint8_t blue);
+
+/**
+ * @brief Set LED colour
+ * @param led LED ID (0-23, 0-17 for LP5018)
+ * @param red Red intensity (0-255)
+ * @param green Green intensity (0-255)
+ * @param blue Blue intensity (0-255)
+ */
+void lp50xx_set_color_led(uint8_t led, uint8_t red, uint8_t green, uint8_t blue);
 
 
 #ifdef __cplusplus

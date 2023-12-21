@@ -33,6 +33,7 @@ fp-info-cache
 ~*
 
 # Build artefacts
+build/
 build/*
 CMakeCache.txt
 CMakeFiles/
