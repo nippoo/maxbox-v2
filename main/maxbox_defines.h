@@ -9,6 +9,7 @@ extern "C" {
 // User config
 
 #define TAG_CHECK_INTERVAL_MS       	500
+#define LORA_TX_INTERVAL_MS             30000
 
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
 
@@ -35,13 +36,15 @@ extern "C" {
 #define SIM_RI_PIN      5
 #define SIM_DTR_PIN     7
 
-#define LORA_MISO_PIN   47
-#define LORA_MOSI_PIN   48
-#define LORA_SCK_PIN    35
-#define LORA_SDA_PIN    36
-#define LORA_DIO1_PIN   14
-#define LORA_RXE_PIN    21
-#define LORA_BUSY_PIN   13
+#define LORA_SPI_DMA_CHAN  SPI_DMA_DISABLED
+#define LORA_SPI_SCLK_PIN  35
+#define LORA_SPI_MOSI_PIN  48
+#define LORA_SPI_MISO_PIN  47
+#define LORA_NSS_PIN       36
+#define LORA_RXTX_PIN      TTN_NOT_CONNECTED
+#define LORA_RST_PIN       37
+#define LORA_DIO0_PIN      13
+#define LORA_DIO1_PIN      14
 
 #define SDA_PIN         11
 #define SCL_PIN         12
@@ -62,9 +65,12 @@ typedef struct {
     int32_t odometer_miles;                /*<! current odometer reading, in miles */
     float aux_battery_voltage;             /*<! standby battery voltage, from ADC */
     float soc_percent;                     /*<! HV state of charge, in percent */
+    float gnss_latitude;                   /*<! GNSS decimal latitude */
+    float gnss_longitude;                  /*<! GNSS decimal longitude */
+    float gnss_hdop;                       /*<! GNSS horizontal position uncertainty */
+    uint8_t gnss_nosats;                   /*<! GNSS number of satellites in use */
+    uint32_t gnss_time;                    /*<! GNSS Unix epoch time */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
-    double gps_latitude;                   /*<! GPS decimal latitude */
-    double gps_longitude;                  /*<! GPS decimal longitude */
 } telemetry_t;
 
 struct maxbox {

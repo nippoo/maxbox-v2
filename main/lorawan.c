@@ -2,6 +2,7 @@
 #include "esp_event.h"
 #include "driver/gpio.h"
 #include "nvs_flash.h"
+#include "esp_log.h"
 
 #include "ttn.h"
 
@@ -9,33 +10,22 @@
 
 static const char* TAG = "MaxBox-LoRaWAN";
 
-const char *appEui = "0000000000000000";
-
-
-// Pins and other resources
-#define TTN_SPI_HOST      SPI3_HOST
-#define TTN_SPI_DMA_CHAN  SPI_DMA_DISABLED
-#define TTN_PIN_SPI_SCLK  35
-#define TTN_PIN_SPI_MOSI  48
-#define TTN_PIN_SPI_MISO  47
-#define TTN_PIN_NSS       36
-#define TTN_PIN_RXTX      TTN_NOT_CONNECTED
-#define TTN_PIN_RST       37
-#define TTN_PIN_DIO0      13
-#define TTN_PIN_DIO1      14
-
-#define TX_INTERVAL 30
 static uint8_t msgData[] = "Hello, world";
-
 
 void lorawan_send(void* pvParameter)
 {
     while (1) {
-        printf("Sending message...\n");
+        ESP_LOGI(TAG, "Sending LoRaWAN message");
         ttn_response_code_t res = ttn_transmit_message(msgData, sizeof(msgData) - 1, 1, false);
-        printf(res == TTN_SUCCESSFUL_TRANSMISSION ? "Message sent.\n" : "Transmission failed.\n");
+        if(res == TTN_SUCCESSFUL_TRANSMISSION)
+            {
+                ESP_LOGI(TAG, "Message sent");
+            } else
+            {
+                ESP_LOGE(TAG, "Message sending failed");
+            }
 
-        vTaskDelay(TX_INTERVAL * pdMS_TO_TICKS(1000));
+        vTaskDelay(LORA_TX_INTERVAL_MS / portTICK_PERIOD_MS);
     }
 }
 
@@ -60,23 +50,23 @@ esp_err_t lorawan_init(void)
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config = {
-        .miso_io_num = TTN_PIN_SPI_MISO,
-        .mosi_io_num = TTN_PIN_SPI_MOSI,
-        .sclk_io_num = TTN_PIN_SPI_SCLK,
+        .miso_io_num = LORA_SPI_MISO_PIN,
+        .mosi_io_num = LORA_SPI_MOSI_PIN,
+        .sclk_io_num = LORA_SPI_SCLK_PIN,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1
     }; 
-    err = spi_bus_initialize(TTN_SPI_HOST, &spi_bus_config, TTN_SPI_DMA_CHAN);
+    err = spi_bus_initialize(LORA_SPI_HOST_ID, &spi_bus_config, LORA_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);
 
     // Initialize TTN
     ttn_init();
 
     // Configure the SX127x pins
-    ttn_configure_pins(TTN_SPI_HOST, TTN_PIN_NSS, TTN_PIN_RXTX, TTN_PIN_RST, TTN_PIN_DIO0, TTN_PIN_DIO1);
+    ttn_configure_pins(LORA_SPI_HOST_ID, LORA_NSS_PIN, LORA_RXTX_PIN, LORA_RST_PIN, LORA_DIO0_PIN, LORA_DIO1_PIN);
 
     // The below line can be commented after the first run as the data is saved in NVS
-    ttn_provision(devEui, appEui, appKey);
+    ttn_provision(CONFIG_LORAWAN_DEVEUI, "0000000000000000", CONFIG_LORAWAN_APPKEY);
 
     // Register callback for received messages
     ttn_on_message(lorawan_rx_callback);
@@ -85,16 +75,16 @@ esp_err_t lorawan_init(void)
     // ttn_set_data_rate(TTN_DR_US915_SF7);
     // ttn_set_max_tx_pow(14);
 
-    printf("Joining...\n");
+    ESP_LOGI(TAG, "Joining");
     if (ttn_join())
     {
-        printf("Joined.\n");
+        ESP_LOGI(TAG, "Joined");
         xTaskCreate(lorawan_send, "lorawan_send", 1024 * 4, (void* )0, 3, NULL);
         return ESP_OK;
     }
     else
     {
-        printf("Join failed. Goodbye\n");
+        ESP_LOGE(TAG, "Join failed");
         return ESP_FAIL;
     }
 }
