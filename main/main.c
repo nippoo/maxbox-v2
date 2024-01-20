@@ -19,6 +19,7 @@
 #include "led.h"
 #include "touch.h"
 #include "vehicle.h"
+#include "lorawan.h"
 
 #include <time.h>
 #include <sys/time.h>
@@ -65,6 +66,7 @@ void app_main(void)
     touch_init();
     sim7600_init();
     vehicle_init();
+    lorawan_init();
 
     xTaskCreate(main_task, "main_task", 4096, NULL, 6, NULL);
 
