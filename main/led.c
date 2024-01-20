@@ -31,7 +31,7 @@ void led_init(void)
     i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, 0);
 
     const lp50xx_start_args_t lp50xx_start_args = {
-        .i2c_addr = 0x28,
+        .i2c_addr = 0x3C,
         .i2c_host_id = I2C_HOST_ID,
     };
 
@@ -66,7 +66,7 @@ void led_update(led_status_t st)
     if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX)
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, night mode", lux);
-        lp50xx_set_global_scale(0.1);
+        lp50xx_set_global_scale(1.0);
     }
     else
     {
