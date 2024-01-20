@@ -66,17 +66,28 @@ static void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
     }
 }
 
-void sim7600_check_connectivity()
+static double convertToDecimalDegrees(const char *latLon, const char *direction)
+{
+  char deg[4] = {0};
+  char *dot, *min;
+  int len;
+  double dec = 0;
+
+  if ((dot = strchr(latLon, '.')))
+  {                                         // decimal point was found
+    min = dot - 2;                          // mark the start of minutes 2 chars back
+    len = min - latLon;                     // find the length of degrees
+    strncpy(deg, latLon, len);              // copy the degree string to allow conversion to float
+    dec = atof(deg) + atof(min) / 60;       // convert to float
+    if (strcmp(direction, "S") == 0 || strcmp(direction, "W") == 0)
+      dec *= -1;
+  }
+  return dec;
+}
+
+void sim7600_get_gps_position()
 {
     char data[BUF_SIZE];
-    int rssi, ber;
-    // CHECK_ERR(esp_modem_get_signal_quality(dce, &rssi, &ber), ESP_LOGI(TAG, "OK. rssi=%d, ber=%d", rssi, ber));
-    // CHECK_ERR(esp_modem_at(dce, "AT+CPSMS?", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-    // CHECK_ERR(esp_modem_at(dce, "AT+CPSI?", data, 500), ESP_LOGI(TAG, "OK. %s", data));             // Inquiring UE system information
-    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Activate the APP network
-    // CHECK_ERR(esp_modem_at(dce, "AT+SNPDPID=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Select PDP index for PING
-    // CHECK_ERR(esp_modem_at(dce, "AT+SNPING4=\"8.8.8.8\",3,16,1000", data, 500), ESP_LOGI(TAG, "OK. %s", data));     // Send IPv4 PING
-    // CHECK_ERR(esp_modem_at(dce, "AT+CNACT=0,0", data, 500), ESP_LOGI(TAG, "OK. %s", data));         // Deactivate the APP network
     CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFO", data, 500), ESP_LOGI(TAG, "OK. %s", data));
 }
 
@@ -108,7 +119,12 @@ void sim7600_gps_start()
 {
     char data[BUF_SIZE];
     ESP_LOGI(TAG, "Turning GPS on");
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPSCOLD", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+
+    // Turn GPS off first and wait 2s before restarting - there might be an error if not
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=1,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    ESP_LOGI(TAG, "GPS enabled");
 }
 
 esp_err_t sim7600_init()

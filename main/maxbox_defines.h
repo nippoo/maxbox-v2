@@ -63,6 +63,8 @@ typedef struct {
     float aux_battery_voltage;             /*<! standby battery voltage, from ADC */
     float soc_percent;                     /*<! HV state of charge, in percent */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
+    double gps_latitude;                   /*<! GPS decimal latitude */
+    double gps_longitude;                  /*<! GPS decimal longitude */
 } telemetry_t;
 
 struct maxbox {
