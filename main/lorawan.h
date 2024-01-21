@@ -7,7 +7,7 @@ extern "C" {
 #endif
 
 /**
- * @brief Initialize LoRaWAN and create telemetry task
+ * @brief Initialize LoRaWAN
  */
 esp_err_t lorawan_init();
 

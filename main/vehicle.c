@@ -16,29 +16,24 @@ void can_receive_task(void *arg)
     while (1) {
         twai_message_t msg;
         twai_receive(&msg, portMAX_DELAY);
-
-        if(pthread_mutex_lock(&mb->tel->telemetrymux) == 0) // make sure telemetry isn't being updated as we reset it
+        if (msg.identifier == 0x5c5)
         {
-            if (msg.identifier == 0x5c5)
+            mb->tel->odometer_miles = (msg.data[1] << 16) | (msg.data[2] << 8) | (msg.data[3]);
+        }
+        else if (msg.identifier == 0x55b)
+        {
+            mb->tel->soc_percent = ((msg.data[0] << 2) | (msg.data[1] >> 6)) / 10;
+        }
+        else if (msg.identifier == 0x60d)
+        {
+            if (msg.data[2] == 0x18)
             {
-                mb->tel->odometer_miles = (msg.data[1] << 16) | (msg.data[2] << 8) | (msg.data[3]);
+                mb->tel->doors_locked = 1;
             }
-            else if (msg.identifier == 0x55b)
+            else
             {
-                mb->tel->soc_percent = ((msg.data[0] << 2) | (msg.data[1] >> 6)) / 10;
+                mb->tel->doors_locked = 0;
             }
-            else if (msg.identifier == 0x60d)
-            {
-                if (msg.data[2] == 0x18)
-                {
-                    mb->tel->doors_locked = 1;
-                }
-                else
-                {
-                    mb->tel->doors_locked = 0;
-                }
-            }
-            pthread_mutex_unlock(&mb->tel->telemetrymux);
         }
     }
     vTaskDelete(NULL);

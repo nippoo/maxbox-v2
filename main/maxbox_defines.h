@@ -53,6 +53,8 @@ extern "C" {
 
 #define LED_STATUS_PIN  46
 
+#define BAT_ADC_CHANNEL ADC_CHANNEL_9
+
 #define I2C_HOST_ID     0
 #define RFID_SPI_HOST_ID     SPI2_HOST
 #define LORA_SPI_HOST_ID     SPI3_HOST
@@ -62,14 +64,18 @@ extern "C" {
 typedef struct {
 	pthread_mutex_t telemetrymux;
 	int8_t doors_locked;                   /*<! 1 = doors locked, 0 = doors unlocked */
+    int32_t doors_updated_ts;              /*<! Box timestamp doors last updated, in seconds */
     int32_t odometer_miles;                /*<! current odometer reading, in miles */
+    int32_t odometer_updated_ts;           /*<! Box timestamp odometer last updated, in seconds */
     float aux_battery_voltage;             /*<! standby battery voltage, from ADC */
     float soc_percent;                     /*<! HV state of charge, in percent */
+    int32_t soc_percent_ts;                /*<! Box timestamp SoC was last updated, in seconds */
     float gnss_latitude;                   /*<! GNSS decimal latitude */
     float gnss_longitude;                  /*<! GNSS decimal longitude */
     float gnss_hdop;                       /*<! GNSS horizontal position uncertainty */
-    uint8_t gnss_nosats;                   /*<! GNSS number of satellites in use */
+    int8_t gnss_nosats;                    /*<! GNSS number of satellites in use */
     uint32_t gnss_time;                    /*<! GNSS Unix epoch time */
+    int32_t gnss_updated_ts;               /*<! Box timestamp GNSS position last updated, in seconds */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
 } telemetry_t;
 
