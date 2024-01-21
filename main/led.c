@@ -66,7 +66,7 @@ void led_update(led_status_t st)
     if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX)
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, night mode", lux);
-        lp50xx_set_global_scale(1.0);
+        lp50xx_set_global_scale(0.1);
     }
     else
     {

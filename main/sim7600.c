@@ -85,10 +85,22 @@ static double convertToDecimalDegrees(const char *latLon, const char *direction)
   return dec;
 }
 
-void sim7600_get_gps_position()
+void gnss_task(void *args)
 {
     char data[BUF_SIZE];
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFO", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFOCFG=10,256", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    while (true) {
+        /*
+        HACK: CGPSINFOCFG seems to be the only way to get multi-constellation NMEA strings out of
+        the SIM7600, and this automatically outputs every N seconds. There doesn't seem to be any way
+        to register a callback to the UART terminal with the esp_modem C API, so we use the new "raw"
+        API to send a blank string to the modem and read the response with a timeout
+        */
+        esp_modem_at_raw(dce, "", data, "", "", 12000);
+        ESP_LOGI(TAG, "%s", data);
+        vTaskDelay(9000 / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
 }
 
 void sim7600_send_sms(char* number, char* text)
@@ -121,7 +133,7 @@ void sim7600_gps_start()
     ESP_LOGI(TAG, "Turning GPS on");
 
     // Turn GPS off first and wait 2s before restarting - there might be an error if not
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    // CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
     vTaskDelay(pdMS_TO_TICKS(2000));
     CHECK_ERR(esp_modem_at(dce, "AT+CGPS=1,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));
     ESP_LOGI(TAG, "GPS enabled");
@@ -158,6 +170,8 @@ esp_err_t sim7600_init()
     wait_for_sync(dce, 15);
 
     sim7600_gps_start();
+
+    xTaskCreate(gnss_task, "gnss_task", 4096, NULL, 4, NULL);
 
     return ESP_OK;
 }

@@ -53,7 +53,7 @@ extern "C" {
 
 #define LED_STATUS_PIN  46
 
-#define BAT_ADC_CHANNEL ADC_CHANNEL_9
+#define VBAT_ADC_CHANNEL ADC_CHANNEL_9
 
 #define I2C_HOST_ID     0
 #define RFID_SPI_HOST_ID     SPI2_HOST

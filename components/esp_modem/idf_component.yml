@@ -1,6 +1,10 @@
-dependencies:
-  idf:
-    version: '>=4.1'
-description: esp modem
+version: "1.0.5"
+description: Library for communicating with cellular modems in command and data modes
 url: https://github.com/espressif/esp-protocols/tree/master/components/esp_modem
-version: 1.0.0
+issues: https://github.com/espressif/esp-protocols/issues
+documentation: https://docs.espressif.com/projects/esp-protocols/esp_modem/docs/latest/index.html
+repository: https://github.com/espressif/esp-protocols.git
+dependencies:
+  # Required IDF version
+  idf:
+    version: ">=4.1"

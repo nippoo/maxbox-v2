@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: 2021-2022 Espressif Systems (Shanghai) CO LTD
+ * SPDX-FileCopyrightText: 2021-2023 Espressif Systems (Shanghai) CO LTD
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -21,10 +21,17 @@ static bool exit_data(DTE &dte, ModuleIf &device, Netif &netif)
     netif.stop();
     auto signal = std::make_shared<SignalGroup>();
     std::weak_ptr<SignalGroup> weak_signal = signal;
-    dte.set_read_cb([weak_signal](uint8_t *data, size_t len) -> bool {
+    dte.set_read_cb([&netif, weak_signal](uint8_t *data, size_t len) -> bool {
+        // post the transitioning data to the network layers if it contains PPP SOF marker
+        if (memchr(data, 0x7E, len))
+        {
+            ESP_LOG_BUFFER_HEXDUMP("esp-modem: debug_data (PPP)", data, len, ESP_LOG_DEBUG);
+            netif.receive(data, len);
+        }
+        // treat the transitioning data as a textual message if it contains a newline char
         if (memchr(data, '\n', len))
         {
-            ESP_LOG_BUFFER_HEXDUMP("esp-modem: debug_data", data, len, ESP_LOG_DEBUG);
+            ESP_LOG_BUFFER_HEXDUMP("esp-modem: debug_data (CMD)", data, len, ESP_LOG_DEBUG);
             const auto pass = std::list<std::string_view>({"NO CARRIER", "DISCONNECTED"});
             std::string_view response((char *) data, len);
             for (auto &it : pass)
@@ -39,6 +46,7 @@ static bool exit_data(DTE &dte, ModuleIf &device, Netif &netif)
     });
     netif.wait_until_ppp_exits();
     if (!signal->wait(1, 2000)) {
+        dte.set_read_cb(nullptr);
         if (!device.set_mode(modem_mode::COMMAND_MODE)) {
             return false;
         }
@@ -88,6 +96,11 @@ bool DCE_Mode::set_unsafe(DTE *dte, ModuleIf *device, Netif &netif, modem_mode m
 {
     switch (m) {
     case modem_mode::UNDEF:
+        if (!dte->set_mode(m)) {
+            return false;
+        }
+        mode = m;
+        return true;
     case modem_mode::DUAL_MODE: // Only DTE can be in Dual mode
         break;
     case modem_mode::COMMAND_MODE:
@@ -143,7 +156,7 @@ bool DCE_Mode::set_unsafe(DTE *dte, ModuleIf *device, Netif &netif, modem_mode m
         mode = modem_mode::CMUX_MANUAL_MODE;
         return true;
     case modem_mode::CMUX_MANUAL_EXIT:
-        if (mode != modem_mode::CMUX_MANUAL_MODE) {
+        if (mode != modem_mode::CMUX_MANUAL_MODE && mode != modem_mode::UNDEF) {
             return false;
         }
         if (!dte->set_mode(m)) {
@@ -152,7 +165,7 @@ bool DCE_Mode::set_unsafe(DTE *dte, ModuleIf *device, Netif &netif, modem_mode m
         mode = modem_mode::COMMAND_MODE;
         return true;
     case modem_mode::CMUX_MANUAL_SWAP:
-        if (mode != modem_mode::CMUX_MANUAL_MODE) {
+        if (mode != modem_mode::CMUX_MANUAL_MODE && mode != modem_mode::UNDEF) {
             return false;
         }
         if (!dte->set_mode(m)) {
@@ -160,12 +173,12 @@ bool DCE_Mode::set_unsafe(DTE *dte, ModuleIf *device, Netif &netif, modem_mode m
         }
         return true;
     case modem_mode::CMUX_MANUAL_DATA:
-        if (mode != modem_mode::CMUX_MANUAL_MODE) {
+        if (mode != modem_mode::CMUX_MANUAL_MODE && mode != modem_mode::UNDEF) {
             return false;
         }
         return transitions::enter_data(*dte, *device, netif);
     case modem_mode::CMUX_MANUAL_COMMAND:
-        if (mode != modem_mode::CMUX_MANUAL_MODE) {
+        if (mode != modem_mode::CMUX_MANUAL_MODE && mode != modem_mode::UNDEF) {
             return false;
         }
         return transitions::exit_data(*dte, *device, netif);
