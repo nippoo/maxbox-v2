@@ -5,6 +5,7 @@ extern "C" {
 #endif
 
 #include "driver/spi_master.h"
+#include "esp_timer.h"
 
 // User config
 
@@ -69,12 +70,11 @@ typedef struct {
     int32_t odometer_updated_ts;           /*<! Box timestamp odometer last updated, in seconds */
     float aux_battery_voltage;             /*<! standby battery voltage, from ADC */
     float soc_percent;                     /*<! HV state of charge, in percent */
-    int32_t soc_percent_ts;                /*<! Box timestamp SoC was last updated, in seconds */
+    int32_t soc_updated_ts;                /*<! Box timestamp SoC was last updated, in seconds */
     float gnss_latitude;                   /*<! GNSS decimal latitude */
     float gnss_longitude;                  /*<! GNSS decimal longitude */
     float gnss_hdop;                       /*<! GNSS horizontal position uncertainty */
     int8_t gnss_nosats;                    /*<! GNSS number of satellites in use */
-    uint32_t gnss_time;                    /*<! GNSS Unix epoch time */
     int32_t gnss_updated_ts;               /*<! Box timestamp GNSS position last updated, in seconds */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
 } telemetry_t;
@@ -86,6 +86,8 @@ struct maxbox {
 };
 
 typedef struct maxbox* maxbox_t;
+
+#define box_timestamp() esp_timer_get_time()/1000000
 
 extern maxbox_t mb;
 

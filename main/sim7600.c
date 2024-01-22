@@ -10,6 +10,7 @@
 #include "esp_modem_api.h"
 #include "esp_event.h"
 #include "sdkconfig.h"
+#include "ctype.h"
 
 #include "esp_netif.h"
 #include "esp_netif_ppp.h"
@@ -66,30 +67,77 @@ static void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
     }
 }
 
-static double convertToDecimalDegrees(const char *latLon, const char *direction)
+static void gnss_start()
+{
+    char data[BUF_SIZE];
+    ESP_LOGI(TAG, "Turning GPS on");
+
+    // Turn GPS off first and wait 2s before restarting - there might be an error if not
+    // CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    vTaskDelay(pdMS_TO_TICKS(3000));
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=1,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    ESP_LOGI(TAG, "GPS enabled");
+}
+
+static void gnss_stop()
+{
+    char data[BUF_SIZE];
+    ESP_LOGI(TAG, "Turning GPS off");
+    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    ESP_LOGI(TAG, "GPS disabled");
+}
+
+static float nmea_to_decimal(const char *lat_long)
 {
   char deg[4] = {0};
   char *dot, *min;
   int len;
-  double dec = 0;
+  float dec = 0;
 
-  if ((dot = strchr(latLon, '.')))
+  if ((dot = strchr(lat_long, '.')))
   {                                         // decimal point was found
     min = dot - 2;                          // mark the start of minutes 2 chars back
-    len = min - latLon;                     // find the length of degrees
-    strncpy(deg, latLon, len);              // copy the degree string to allow conversion to float
+    len = min - lat_long;                   // find the length of degrees
+    strncpy(deg, lat_long, len);            // copy the degree string to allow conversion to float
     dec = atof(deg) + atof(min) / 60;       // convert to float
-    if (strcmp(direction, "S") == 0 || strcmp(direction, "W") == 0)
-      dec *= -1;
   }
   return dec;
+}
+
+static void process_gngns_string(char *buf)
+{
+    // Example string: $GNGNS,223254.00,5156.126739,N,00629.13328,W,AAA,10,1.0,18.9,46.0,,,V*49
+    char *p;
+    if (!(p = strstr(buf, "$GNGNS"))) return;
+    if (!(p = strchr(p, ','))) return;
+    if (!(p = strchr(++p, ','))) return; // jump over UTC time
+    mb->tel->gnss_latitude = nmea_to_decimal(++p);
+    if (!(p = strchr(p, ','))) return;
+    if (*(++p) == 'S') mb->tel->gnss_latitude = -mb->tel->gnss_latitude;
+    if (!(p = strchr(p, ','))) return;
+    mb->tel->gnss_longitude = nmea_to_decimal(++p);
+    if (!(p = strchr(p, ','))) return;
+    if (*(++p) == 'W') mb->tel->gnss_longitude = -mb->tel->gnss_longitude;
+    if (!(p = strchr(p, ','))) return; // jump over mode indicator
+    if (!(p = strchr(++p, ','))) return;
+    mb->tel->gnss_nosats = atoi(++p);
+    if (!(p = strchr(p, ','))) return;
+    mb->tel->gnss_hdop = atof(++p) * 3.0; //    HACK: HDoP isn't the same as horizontal precision, but for this
+                                          //    application we multiply by 3 to get a rough horizontal range
+
+    mb->tel->gnss_updated_ts = box_timestamp();
 }
 
 void gnss_task(void *args)
 {
     char data[BUF_SIZE];
+
+    gnss_start();
+
+    // $GNGNS string only, every 10 seconds
     CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFOCFG=10,256", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-    while (true) {
+
+    while (true) { // TODO: change this condition to detect low-power flag
         /*
         HACK: CGPSINFOCFG seems to be the only way to get multi-constellation NMEA strings out of
         the SIM7600, and this automatically outputs every N seconds. There doesn't seem to be any way
@@ -97,46 +145,15 @@ void gnss_task(void *args)
         API to send a blank string to the modem and read the response with a timeout
         */
         esp_modem_at_raw(dce, "", data, "", "", 12000);
-        ESP_LOGI(TAG, "%s", data);
+        ESP_LOGD(TAG, "Raw GNSS string: %s", data);
+        process_gngns_string(data);
+
         vTaskDelay(9000 / portTICK_PERIOD_MS);
     }
+
+    gnss_stop();
+
     vTaskDelete(NULL);
-}
-
-void sim7600_send_sms(char* number, char* text)
-{
-    if (esp_modem_sms_txt_mode(dce, true) != ESP_OK || esp_modem_sms_character_set(dce) != ESP_OK) {
-        ESP_LOGE(TAG, "Setting text mode or GSM character set failed");
-        return;
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Successfully set character mode. Now sending SMS");
-    }
-
-    ESP_LOGI(TAG, "Successfully set character mode. Now sending SMS");
-
-    esp_err_t err = esp_modem_send_sms(dce, number, text);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_modem_send_sms() failed with %d", err);
-        return;
-    }
-    else
-    {
-        ESP_LOGI(TAG, "Successfully sent SMS");
-    }
-}
-
-void sim7600_gps_start()
-{
-    char data[BUF_SIZE];
-    ESP_LOGI(TAG, "Turning GPS on");
-
-    // Turn GPS off first and wait 2s before restarting - there might be an error if not
-    // CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=1,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-    ESP_LOGI(TAG, "GPS enabled");
 }
 
 esp_err_t sim7600_init()
@@ -169,9 +186,7 @@ esp_err_t sim7600_init()
 
     wait_for_sync(dce, 15);
 
-    sim7600_gps_start();
-
-    xTaskCreate(gnss_task, "gnss_task", 4096, NULL, 4, NULL);
+    xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 4, NULL);
 
     return ESP_OK;
 }

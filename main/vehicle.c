@@ -19,10 +19,12 @@ void can_receive_task(void *arg)
         if (msg.identifier == 0x5c5)
         {
             mb->tel->odometer_miles = (msg.data[1] << 16) | (msg.data[2] << 8) | (msg.data[3]);
+            mb->tel->odometer_updated_ts = box_timestamp();
         }
         else if (msg.identifier == 0x55b)
         {
             mb->tel->soc_percent = ((msg.data[0] << 2) | (msg.data[1] >> 6)) / 10;
+            mb->tel->soc_updated_ts = box_timestamp();
         }
         else if (msg.identifier == 0x60d)
         {
@@ -34,6 +36,7 @@ void can_receive_task(void *arg)
             {
                 mb->tel->doors_locked = 0;
             }
+            mb->tel->doors_updated_ts = box_timestamp();
         }
     }
     vTaskDelete(NULL);
@@ -171,6 +174,8 @@ esp_err_t vehicle_init()
         ESP_LOGE(TAG, "Failed to start driver");
         return ESP_FAIL;
     }
+
+    xTaskCreatePinnedToCore(can_receive_task, "can_receive_task", 4096, NULL, 3, NULL, tskNO_AFFINITY);
 
     return ESP_OK;
 }

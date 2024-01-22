@@ -9,9 +9,14 @@ extern "C" {
 #endif
 
 /**
+ * @brief Debug print all telemetry struct
+ */
+void print_all_telemetry();
+
+/**
  * @brief Format LoRaWAN telemetry packet contents
  */
-void lora_format_telemetry(char *lm);
+void lora_format_telemetry(uint8_t *lm);
 
 /**
  * @brief Initialize telemetry and box monitoring

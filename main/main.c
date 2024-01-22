@@ -67,20 +67,8 @@ void app_main(void)
     led_init();
     touch_init();
     sim7600_init();
-    // vehicle_init();
-    // lorawan_init();
-
-    char lora_telemetry_message[19] = {0};
-    lora_format_telemetry(lora_telemetry_message);
-
-    printf(lora_telemetry_message);
-
-    int i = 0;
-    while (i < sizeof(lora_telemetry_message))
-    {
-         printf("%02X",(int)lora_telemetry_message[i]);
-         i++;
-    }
+    vehicle_init();
+    lorawan_init();
 
     xTaskCreate(main_task, "main_task", 4096, NULL, 6, NULL);
 
