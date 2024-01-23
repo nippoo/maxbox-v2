@@ -174,7 +174,7 @@ void led_task(void *args)
                     lp50xx_set_global_off(0);
                     break;
                 case LED_ERROR:
-                    lp50xx_set_bank_control(0);
+                    lp50xx_set_bank_control(1);
                     lp50xx_set_global_off(0);
                     break;
                 default:
@@ -197,22 +197,22 @@ void led_task(void *args)
             break;
         case LED_LOCKED:
                 led_breathe(200, elapsed_ms, 0, 255, 0);
-            if (elapsed_ms > 3000)
+            if (elapsed_ms > 1500)
                 led_update(LED_IDLE);
             break;
         case LED_UNLOCKED:
             led_breathe(200, elapsed_ms, 0, 0, 255);
-            if (elapsed_ms > 3000)
+            if (elapsed_ms > 1500)
                 led_update(LED_IDLE);
             break;
         case LED_DENY:
             led_breathe(200, elapsed_ms, 255, 0, 0);
-            if (elapsed_ms > 3000)
+            if (elapsed_ms > 1500)
                 led_update(LED_IDLE);
             break;
         case LED_ERROR:
-            led_breathe_2colour(500, elapsed_ms, 0, 255, 0, 255, 0, 0);
-            if (elapsed_ms > 3000)
+            led_breathe_2colour(500, elapsed_ms, 255, 0, 255, 255, 0, 0);
+            if (elapsed_ms > 5000)
                 led_update(LED_IDLE);
             break;
         case LED_FIRMWARE:
