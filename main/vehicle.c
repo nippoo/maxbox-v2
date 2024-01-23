@@ -13,6 +13,8 @@ static const char* TAG = "MaxBox-vehicle";
 
 void can_receive_task(void *arg)
 {
+    // Receives and processes CAN bus data from Nissan E-NV200/Leaf and updates telemetry
+
     while (1) {
         twai_message_t msg;
         twai_receive(&msg, portMAX_DELAY);
@@ -132,10 +134,10 @@ static void un_lock()
     if(mb->lock_desired)
     {
         ESP_LOGI(TAG, "Car locked");
-        led_update(LOCKED);
+        led_update(LED_LOCKED);
     } else {
         ESP_LOGI(TAG, "Car unlocked");
-        led_update(UNLOCKED);
+        led_update(LED_UNLOCKED);
     }
 
     vTaskDelete(NULL);
@@ -147,10 +149,6 @@ esp_err_t vehicle_init()
     // For the moment we just leave it awake all the time
     gpio_set_direction(CAN_SLEEP_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(CAN_SLEEP_PIN, 0);
-
-    if(pthread_mutex_init (&mb->tel->telemetrymux, NULL) != 0){
-        ESP_LOGE(TAG, "Failed to initialize the telemetry mutex");
-    }
 
     //Initialize configuration structures using macro initializers
     twai_general_config_t g_config = TWAI_GENERAL_CONFIG_DEFAULT(CAN_TX_PIN, CAN_RX_PIN, TWAI_MODE_NORMAL);

@@ -15,27 +15,10 @@
 
 static const char* TAG = "MaxBox-touch";
 
-void touch_init(void)
-{
-    // Power up the MFRC522
-    gpio_set_direction(RFID_NRSTPD_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(RFID_NRSTPD_PIN, 1);
-
-    const rc522_start_args_t start_args = {
-        .miso_io  = RFID_MISO_PIN,
-        .mosi_io  = RFID_MOSI_PIN,
-        .sck_io   = RFID_SCK_PIN,
-        .sda_io   = RFID_SDA_PIN,
-        .spi_host_id = RFID_SPI_HOST_ID
-    };
-
-    rc522_init(&start_args);
-}
-
 void touch_handler(void *serial_no) // serial number is always 4 bytes long
 {
     const uint8_t* sn = (uint8_t *) serial_no;
-    led_update(PROCESSING);
+    led_update(LED_TOUCH);
 
     char card_id[9];
     sprintf(card_id, "%02x%02x%02x%02x", sn[0], sn[1], sn[2], sn[3]);
@@ -58,4 +41,40 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
             break;
         }
     }
+}
+
+void touch_task(void *args)
+{
+    while (true) {
+        // is there a tag?
+        uint8_t* sn = rc522_get_tag();
+
+        if(sn)
+        {
+            touch_handler(sn);
+        }
+
+        vTaskDelay(TAG_CHECK_INTERVAL_MS / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
+}
+
+void touch_init()
+{
+    // Power up the MFRC522
+    gpio_set_direction(RFID_NRSTPD_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(RFID_NRSTPD_PIN, 1);
+
+    const rc522_start_args_t start_args = {
+        .miso_io  = RFID_MISO_PIN,
+        .mosi_io  = RFID_MOSI_PIN,
+        .sck_io   = RFID_SCK_PIN,
+        .sda_io   = RFID_SDA_PIN,
+        .spi_host_id = RFID_SPI_HOST_ID
+    };
+
+    rc522_init(&start_args);
+
+    xTaskCreate(touch_task, "touch_task", 4096, NULL, 6, NULL);
+
 }

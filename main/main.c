@@ -15,7 +15,6 @@
 #include "maxbox_defines.h"
 #include "rc522.h"
 #include "sim7600.h"
-
 #include "led.h"
 #include "touch.h"
 #include "vehicle.h"
@@ -41,22 +40,6 @@ static void io_init(void)
     gpio_set_level(LED_STATUS_PIN, 1);
 }
 
-static void main_task(void *args)
-{
-    while (true) {
-        // is there a tag?
-        uint8_t* sn = rc522_get_tag();
-
-        if(sn)
-        {
-            touch_handler(sn);
-        }
-
-        vTaskDelay(TAG_CHECK_INTERVAL_MS / portTICK_PERIOD_MS);
-    }
-    vTaskDelete(NULL);
-}
-
 void app_main(void)
 {
     mb = calloc(1, sizeof(struct maxbox));
@@ -70,8 +53,6 @@ void app_main(void)
     vehicle_init();
     lorawan_init();
 
-    xTaskCreate(main_task, "main_task", 4096, NULL, 6, NULL);
-
-    led_update(IDLE); // boot complete
+    led_update(LED_IDLE); // boot complete
     ESP_LOGI(TAG, "Boot complete");
 }

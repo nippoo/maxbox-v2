@@ -10,7 +10,9 @@ extern "C" {
 // User config
 
 #define TAG_CHECK_INTERVAL_MS       	500
+
 #define LORA_TX_INTERVAL_MS             30000
+#define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF12
 
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
 
@@ -60,10 +62,11 @@ extern "C" {
 #define RFID_SPI_HOST_ID     SPI2_HOST
 #define LORA_SPI_HOST_ID     SPI3_HOST
 
+#define box_timestamp() esp_timer_get_time()/1000000
+
 // Shared data structs
 
 typedef struct {
-	pthread_mutex_t telemetrymux;
 	int8_t doors_locked;                   /*<! 1 = doors locked, 0 = doors unlocked */
     int32_t doors_updated_ts;              /*<! Box timestamp doors last updated, in seconds */
     int32_t odometer_miles;                /*<! current odometer reading, in miles */
@@ -76,6 +79,11 @@ typedef struct {
     float gnss_hdop;                       /*<! GNSS horizontal position uncertainty */
     int8_t gnss_nosats;                    /*<! GNSS number of satellites in use */
     int32_t gnss_updated_ts;               /*<! Box timestamp GNSS position last updated, in seconds */
+    int8_t tyre_pressure_fl;               /*<! Front left tyre pressure */
+    int8_t tyre_pressure_fr;               /*<! Front right tyre pressure */
+    int8_t tyre_pressure_rl;               /*<! Rear left tyre pressure */
+    int8_t tyre_pressure_rr;               /*<! Rear right tyre pressure */
+    int32_t tp_updated_ts;                 /*<! Tyre pressure last updated, in seconds */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
 } telemetry_t;
 
@@ -86,8 +94,6 @@ struct maxbox {
 };
 
 typedef struct maxbox* maxbox_t;
-
-#define box_timestamp() esp_timer_get_time()/1000000
 
 extern maxbox_t mb;
 

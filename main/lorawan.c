@@ -73,7 +73,7 @@ esp_err_t lorawan_init(void)
     ttn_on_message(lorawan_rx_callback);
 
     ttn_set_adr_enabled(false);
-    ttn_set_data_rate(TTN_DR_EU868_SF12);
+    ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
     ttn_set_max_tx_pow(14);
 
     ESP_LOGI(TAG, "Joining");
@@ -82,7 +82,7 @@ esp_err_t lorawan_init(void)
         ESP_LOGI(TAG, "Joined");
 
         ttn_set_adr_enabled(false);
-        ttn_set_data_rate(TTN_DR_EU868_SF12);
+        ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
         ttn_set_max_tx_pow(14);
 
         xTaskCreate(lorawan_send, "lorawan_send", 1024 * 4, (void* )0, 3, NULL);

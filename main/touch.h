@@ -8,6 +8,8 @@ extern "C" {
 
 void touch_init();
 void touch_handler(void*);
+void touch_task(void*);
+
 
 #ifdef __cplusplus
 }

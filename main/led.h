@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-typedef enum {BOOT, IDLE, HEARTBEAT, PROCESSING, LOCKED, UNLOCKED, DENY, ERROR, FIRMWARE} led_status_t;
+typedef enum {LED_BOOT, LED_IDLE, LED_TOUCH, LED_LOCKED, LED_UNLOCKED, LED_DENY, LED_ERROR, LED_FIRMWARE} led_status_t;
 
 void led_init(void);
 void led_update(led_status_t);

@@ -29,9 +29,8 @@ static void update_battery_voltage(void)
 
 static uint8_t calculate_age_t(int32_t timestamp)
 {
-    /*
-    Calculates age_t of telemetry data for LoRaWAN packet
-    */
+    // Calculates age_t of telemetry data for LoRaWAN packet
+
     if (timestamp == 0) return 255;
     int32_t delta_timestamp = box_timestamp() - timestamp;
     uint8_t age_byte;
@@ -129,6 +128,12 @@ void lora_format_telemetry(uint8_t *lm)
     // SoC data age, rescaled into an age_t
     uint8_t soc_data_age_byte = calculate_age_t(mb->tel->soc_updated_ts);
     memcpy(lm+13, &soc_data_age_byte, 1);
+
+    // TODO: tyre pressure data
+
+    // Tyre pressure data age, rescaled into an age_t
+    uint8_t tp_age_byte = calculate_age_t(mb->tel->tp_updated_ts);
+    memcpy(lm+17, &tp_age_byte, 1);
 }
 
 esp_err_t telemetry_init(void)
@@ -138,16 +143,16 @@ esp_err_t telemetry_init(void)
     adc_oneshot_unit_init_cfg_t init_config1 = {
         .unit_id = ADC_UNIT_1,
     };
-    ESP_ERROR_CHECK(adc_oneshot_new_unit(&init_config1, &adc1_handle));
+    adc_oneshot_new_unit(&init_config1, &adc1_handle);
 
     adc_oneshot_chan_cfg_t config = {
         .bitwidth = ADC_BITWIDTH_DEFAULT,
         .atten = ADC_ATTEN_DB_11,
     };
 
-    ESP_ERROR_CHECK(adc_oneshot_config_channel(adc1_handle, VBAT_ADC_CHANNEL, &config));
+    adc_oneshot_config_channel(adc1_handle, VBAT_ADC_CHANNEL, &config);
 
-        adc_cali_curve_fitting_config_t cali_config = {
+    adc_cali_curve_fitting_config_t cali_config = {
         .unit_id = ADC_UNIT_1,
         .atten = ADC_ATTEN_DB_11,
         .bitwidth = ADC_BITWIDTH_DEFAULT,
