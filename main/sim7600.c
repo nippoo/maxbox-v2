@@ -22,7 +22,6 @@
 esp_modem_dce_t *dce;
 esp_netif_t *esp_netif;
 
-
 #define CHECK_ERR(cmd, success_action)  do {    \
         esp_err_t ret = cmd;                    \
         if (ret == ESP_OK) {                    \
@@ -169,8 +168,8 @@ esp_err_t sim7600_init()
 
     dte_config.uart_config.tx_io_num = SIM_TXD_PIN;
     dte_config.uart_config.rx_io_num = SIM_RXD_PIN;
-    dte_config.uart_config.rx_buffer_size = 1024;
-    dte_config.uart_config.tx_buffer_size = 1024;
+    dte_config.uart_config.rx_buffer_size = 512;
+    dte_config.uart_config.tx_buffer_size = 512;
     dte_config.uart_config.event_queue_size = 30;
     dte_config.task_stack_size = 4096;
     dte_config.task_priority = 5;

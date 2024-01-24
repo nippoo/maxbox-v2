@@ -40,6 +40,19 @@ void can_receive_task(void *arg)
             }
             mb->tel->doors_updated_ts = box_timestamp();
         }
+        else if (msg.identifier == 0x385)
+        {
+            if (msg.data[2]) {mb->tel->tyre_pressure_fr = (msg.data[2] / 4);} else {mb->tel->tyre_pressure_fr = 63;}
+            if (msg.data[3]) {mb->tel->tyre_pressure_fl = (msg.data[3] / 4);} else {mb->tel->tyre_pressure_fr = 63;}
+            if (msg.data[4]) {mb->tel->tyre_pressure_rr = (msg.data[4] / 4);} else {mb->tel->tyre_pressure_fr = 63;}
+            if (msg.data[5]) {mb->tel->tyre_pressure_rl = (msg.data[5] / 4);} else {mb->tel->tyre_pressure_fr = 63;}
+            mb->tel->tp_updated_ts = box_timestamp();
+        }
+        else if (msg.identifier == 0x5b3)
+        {
+            mb->tel->soh_percent = (msg.data[1] >> 1);
+            mb->tel->soh_updated_ts = box_timestamp();
+        }
     }
     vTaskDelete(NULL);
 }

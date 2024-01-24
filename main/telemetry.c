@@ -9,12 +9,15 @@
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
 #include "string.h"
+#include "cJSON.h"
 
 #include "maxbox_defines.h"
 
 #include "telemetry.h"
 
 static const char* TAG = "MaxBox-telemetry";
+
+#define ts_stale(ts) ((box_timestamp() - ts) > (LORA_TX_INTERVAL_MS/1000))
 
 adc_oneshot_unit_handle_t adc1_handle;
 adc_cali_handle_t adc1_cali_handle = NULL;
@@ -52,13 +55,75 @@ void print_all_telemetry()
     ESP_LOGI(TAG, "Odometer last updated: %ld", mb->tel->odometer_updated_ts);
     ESP_LOGI(TAG, "Aux battery voltage, %fV", mb->tel->aux_battery_voltage);
     ESP_LOGI(TAG, "SoC: %f%", mb->tel->soc_percent);
-    ESP_LOGI(TAG, "Odometer last updated: %ld", mb->tel->soc_updated_ts);
+    ESP_LOGI(TAG, "SoC last updated: %ld", mb->tel->soc_updated_ts);
+    ESP_LOGI(TAG, "SoH: %i%", mb->tel->soh_percent);
+    ESP_LOGI(TAG, "SoH last updated: %ld", mb->tel->soh_updated_ts);
+    ESP_LOGI(TAG, "Odometer last updated: %ld", mb->tel->odometer_updated_ts);
     ESP_LOGI(TAG, "GNSS position: %f, %f", mb->tel->gnss_latitude, mb->tel->gnss_longitude);
     ESP_LOGI(TAG, "GNSS HDoP: %f", mb->tel->gnss_hdop);
     ESP_LOGI(TAG, "GNSS number of satellites: %i", mb->tel->gnss_nosats);
     ESP_LOGI(TAG, "GNSS last updated: %ld", mb->tel->gnss_updated_ts);
+    ESP_LOGI(TAG, "Tyre pressure front left: %i", mb->tel->tyre_pressure_fl);
+    ESP_LOGI(TAG, "Tyre pressure front right: %i", mb->tel->tyre_pressure_fr);
+    ESP_LOGI(TAG, "Tyre pressure rear left: %i", mb->tel->tyre_pressure_rl);
+    ESP_LOGI(TAG, "Tyre pressure rear right: %i",   mb->tel->tyre_pressure_rr);
+    ESP_LOGI(TAG, "Tyre pressure last updated: %ld", mb->tel->tp_updated_ts);
     ESP_LOGI(TAG, "iButton ID: %s", mb->tel->ibutton_id);
     ESP_LOGI(TAG, "Box uptime: %ld", box_ts);
+}
+
+void json_format_telemetry(char *json_string)
+{
+    update_battery_voltage();
+
+    cJSON *root, *tel, *tp, *gnss, *soc, *soh, *odo, *doors, *ab, *maxbox;
+    root=cJSON_CreateObject();
+    cJSON_AddItemToObject(root, "telemetry", tel=cJSON_CreateObject());
+
+    cJSON_AddItemToObject(tel, "gnss", gnss=cJSON_CreateObject());
+    cJSON_AddNumberToObject(gnss, "lat",  mb->tel->gnss_latitude);
+    cJSON_AddNumberToObject(gnss, "lng",  mb->tel->gnss_longitude);
+    cJSON_AddNumberToObject(gnss, "hdop",  mb->tel->gnss_hdop);
+    cJSON_AddNumberToObject(gnss, "nosats",  mb->tel->gnss_nosats);
+    cJSON_AddNumberToObject(gnss, "ts",  mb->tel->gnss_updated_ts);
+
+    cJSON_AddItemToObject(tel, "soc", soc=cJSON_CreateObject());
+    cJSON_AddNumberToObject(soc, "percent", mb->tel->soc_percent);
+    cJSON_AddNumberToObject(soc, "ts", mb->tel->soc_updated_ts);
+
+    cJSON_AddItemToObject(tel, "soh", soh=cJSON_CreateObject());
+    cJSON_AddNumberToObject(soh, "percent", mb->tel->soh_percent);
+    cJSON_AddNumberToObject(soh, "ts", mb->tel->soh_updated_ts);
+
+    cJSON_AddItemToObject(tel, "odometer", odo=cJSON_CreateObject());
+    cJSON_AddNumberToObject(odo, "miles", mb->tel->odometer_miles);
+    cJSON_AddNumberToObject(odo, "ts", mb->tel->odometer_updated_ts);
+
+    cJSON_AddItemToObject(tel, "tyre_pressures", tp=cJSON_CreateObject());
+    cJSON_AddNumberToObject(tp, "fl_psi", mb->tel->tyre_pressure_fl);
+    cJSON_AddNumberToObject(tp, "fr_psi", mb->tel->tyre_pressure_fr);
+    cJSON_AddNumberToObject(tp, "rl_psi", mb->tel->tyre_pressure_rl);
+    cJSON_AddNumberToObject(tp, "rr_psi", mb->tel->tyre_pressure_rr);
+    cJSON_AddNumberToObject(tp, "ts", mb->tel->tp_updated_ts);
+
+    cJSON_AddItemToObject(tel, "doors", doors=cJSON_CreateObject());
+    cJSON_AddNumberToObject(doors, "locked", mb->tel->doors_locked);
+    cJSON_AddNumberToObject(doors, "ts", mb->tel->doors_updated_ts);
+
+    cJSON_AddItemToObject(tel, "aux_battery", ab=cJSON_CreateObject());
+    cJSON_AddNumberToObject(ab, "voltage",  mb->tel->aux_battery_voltage);
+
+    cJSON_AddItemToObject(tel, "maxbox", maxbox=cJSON_CreateObject());
+    cJSON_AddStringToObject(maxbox, "ibutton_id",  mb->tel->ibutton_id);
+    cJSON_AddNumberToObject(maxbox, "uptime_s", box_timestamp());
+    cJSON_AddNumberToObject(maxbox, "free_heap_bytes", esp_get_free_heap_size());
+
+    char *rendered=cJSON_Print(root);
+
+    strcpy(json_string, rendered);
+
+    cJSON_Delete(root);
+    free(rendered);
 }
 
 void lora_format_telemetry(uint8_t *lm)
@@ -95,6 +160,14 @@ void lora_format_telemetry(uint8_t *lm)
     255         invalid/NaN
     */
 
+    // Byte 0 is a bitfield
+    uint8_t bitfield = 0;
+    if (mb->tel->doors_locked) bitfield = bitfield & 0b00000001;
+    if (ts_stale(mb->tel->soc_updated_ts)) bitfield = bitfield & 0b10000000;
+    if (ts_stale(mb->tel->tp_updated_ts)) bitfield = bitfield & 0b01000000;
+    if (ts_stale(mb->tel->gnss_updated_ts)) bitfield = bitfield & 0b00100000;
+    memcpy(lm, &bitfield, 1);
+
     // GNSS data-packing routines: lat_long direct memcpy
     memcpy(lm+1, &mb->tel->gnss_latitude, 4);
     memcpy(lm+5, &mb->tel->gnss_longitude, 4);
@@ -113,7 +186,7 @@ void lora_format_telemetry(uint8_t *lm)
     memcpy(lm+10, &gnss_data_age_byte, 1);
 
     // Aux battery voltage needs to be rescaled
-    uint8_t aux_v_byte = 0;
+    uint8_t aux_v_byte;
 
     if (mb->tel->aux_battery_voltage < 0) {aux_v_byte = 0;}
     else if (mb->tel->aux_battery_voltage > 25.4) {aux_v_byte = 255;}
@@ -125,11 +198,19 @@ void lora_format_telemetry(uint8_t *lm)
 
     memcpy(lm+12, &soc_byte, 1);
 
+    uint32_t tp_combined = (mb->tel->tyre_pressure_fl & 0b00111111)
+    + ((mb->tel->tyre_pressure_fr & 0b00111111) << 6)
+    + ((mb->tel->tyre_pressure_rl & 0b00111111) << 12)
+    + ((mb->tel->tyre_pressure_rr & 0b00111111) << 18);
+
+    // HACK: copying from unaligned memory throws up compiler errors so we copy the full 4-byte uint32
+    // and then copy the one-byte SoC data age over the top of it - the high byte of this uint32 will be 0. 
+    tp_combined = __builtin_bswap32(tp_combined);
+    memcpy(lm+13, &tp_combined, 4);
+
     // SoC data age, rescaled into an age_t
     uint8_t soc_data_age_byte = calculate_age_t(mb->tel->soc_updated_ts);
-    memcpy(lm+13, &soc_data_age_byte, 1);
-
-    // TODO: tyre pressure data
+    memcpy(lm+13, &soc_data_age_byte, 1); 
 
     // Tyre pressure data age, rescaled into an age_t
     uint8_t tp_age_byte = calculate_age_t(mb->tel->tp_updated_ts);

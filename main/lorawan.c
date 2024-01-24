@@ -17,7 +17,6 @@ static const char* TAG = "MaxBox-LoRaWAN";
 void lorawan_send(void* pvParameter)
 {
     while (1) {
-
         print_all_telemetry();
         uint8_t lora_telemetry_message[19] = {0};
         lora_format_telemetry(lora_telemetry_message);

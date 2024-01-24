@@ -10,6 +10,7 @@
 #include "rc522.h"
 #include "led.h"
 #include "vehicle.h"
+#include "telemetry.h"
 
 #include "maxbox_defines.h"
 

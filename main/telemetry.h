@@ -19,6 +19,11 @@ void print_all_telemetry();
 void lora_format_telemetry(uint8_t *lm);
 
 /**
+ * @brief Format LoRaWAN telemetry packet contents
+ */
+void json_format_telemetry(char *json_string);
+
+/**
  * @brief Initialize telemetry and box monitoring
  */
 esp_err_t telemetry_init();

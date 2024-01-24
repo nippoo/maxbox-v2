@@ -12,7 +12,7 @@ extern "C" {
 #define TAG_CHECK_INTERVAL_MS       	500
 
 #define LORA_TX_INTERVAL_MS             30000
-#define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF12
+#define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF8
 
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
 
@@ -84,6 +84,8 @@ typedef struct {
     int8_t tyre_pressure_rl;               /*<! Rear left tyre pressure */
     int8_t tyre_pressure_rr;               /*<! Rear right tyre pressure */
     int32_t tp_updated_ts;                 /*<! Tyre pressure last updated, in seconds */
+    uint8_t soh_percent;                   /*<! HV battery SoH, percent */
+    int32_t soh_updated_ts;                /*<! SoH last updated, in seconds */
     char ibutton_id[17];                   /*<! ID of iButton currently attached */
 } telemetry_t;
 
