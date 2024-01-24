@@ -162,10 +162,10 @@ void lora_format_telemetry(uint8_t *lm)
 
     // Byte 0 is a bitfield
     uint8_t bitfield = 0;
-    if (mb->tel->doors_locked) bitfield = bitfield & 0b00000001;
-    if (ts_stale(mb->tel->soc_updated_ts)) bitfield = bitfield & 0b10000000;
-    if (ts_stale(mb->tel->tp_updated_ts)) bitfield = bitfield & 0b01000000;
-    if (ts_stale(mb->tel->gnss_updated_ts)) bitfield = bitfield & 0b00100000;
+    if (mb->tel->doors_locked) bitfield = bitfield | 0b00000001;
+    if (ts_stale(mb->tel->soc_updated_ts)) bitfield = bitfield | 0b10000000;
+    if (ts_stale(mb->tel->tp_updated_ts)) bitfield = bitfield | 0b01000000;
+    if (ts_stale(mb->tel->gnss_updated_ts)) bitfield = bitfield | 0b00100000;
     memcpy(lm, &bitfield, 1);
 
     // GNSS data-packing routines: lat_long direct memcpy
