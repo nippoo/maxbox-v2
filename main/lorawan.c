@@ -12,8 +12,6 @@
 
 static const char* TAG = "MaxBox-LoRaWAN";
 
-// static uint8_t msgData[] = "Hello, world";
-
 void lorawan_send(void* pvParameter)
 {
     while (1) {
@@ -42,13 +40,17 @@ void lorawan_rx_callback(const uint8_t* message, size_t length, ttn_port_t port)
 
 esp_err_t lorawan_init(void)
 {
+    // Generate devEUI from HW MAC by padding middle two bytes with FF
+    char deveui_string[17];
+
+    sprintf(deveui_string, "%02x%02x%02x%02x%02x%02x%02x%02x",
+            mb->base_mac[0], mb->base_mac[1], mb->base_mac[2], 0xFF, 0xFF, mb->base_mac[3], mb->base_mac[4], mb->base_mac[5]);
+
+    ESP_LOGI(TAG, "DevEUI (generated): %s", deveui_string);
+
     esp_err_t err;
     // Initialize the GPIO ISR handler service
     err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
-    ESP_ERROR_CHECK(err);
-    
-    // Initialize the NVS (non-volatile storage) for saving and restoring the keys
-    err = nvs_flash_init();
     ESP_ERROR_CHECK(err);
 
     // Initialize SPI bus
@@ -76,7 +78,7 @@ esp_err_t lorawan_init(void)
     ttn_set_max_tx_pow(14);
 
     ESP_LOGI(TAG, "Joining");
-    if (ttn_join_with_keys(CONFIG_LORAWAN_DEVEUI, "0000000000000000", CONFIG_LORAWAN_APPKEY))
+    if (ttn_join_with_keys(deveui_string, "0000000000000000", CONFIG_LORAWAN_APPKEY))
     {
         ESP_LOGI(TAG, "Joined");
 

@@ -29,12 +29,6 @@ config MAXBOX_FW_VERSION
     help
         Firmware version to report as API header
 
-config LORAWAN_DEVEUI
-    string "LoRaWAN DevEUI"
-    default "0102030405060708"
-    help
-        LoRaWAN DevEUI
-
 config LORAWAN_APPKEY
     string "LoRaWAN AppKey"
     default "01020304050607080910111213141516"

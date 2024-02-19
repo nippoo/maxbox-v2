@@ -91,6 +91,8 @@ typedef struct {
 
 struct maxbox {
 	telemetry_t* tel;
+    uint8_t base_mac[6];                                /*<! HW MAC address */
+    int32_t etag;                                       /*<! etag for sequential operator card list update */
     char operator_card_list[MAX_OPERATOR_CARDS][9];     /*<! List of operator card IDs */
     bool lock_desired;                                  /*<! Desired lock status (0: unlocked, 1: locked) */
 };
