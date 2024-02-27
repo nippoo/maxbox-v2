@@ -10,6 +10,9 @@
 #include "telemetry.h"
 #include "lorawan.h"
 
+#include "esp_intr_types.h"
+
+
 static const char* TAG = "MaxBox-LoRaWAN";
 
 void lorawan_send(void* pvParameter)
@@ -59,7 +62,8 @@ esp_err_t lorawan_init(void)
         .mosi_io_num = LORA_SPI_MOSI_PIN,
         .sclk_io_num = LORA_SPI_SCLK_PIN,
         .quadwp_io_num = -1,
-        .quadhd_io_num = -1
+        .quadhd_io_num = -1,
+        .intr_flags = ESP_INTR_FLAG_LOWMED,
     }; 
     err = spi_bus_initialize(LORA_SPI_HOST_ID, &spi_bus_config, LORA_SPI_DMA_CHAN);
     ESP_ERROR_CHECK(err);

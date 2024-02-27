@@ -13,7 +13,8 @@ set(COMPONENT_SRCS "main.c"
 				   "lp50xx.c"
 				   "ltr303.c"
 				   "sim7600.c"
-				   "lorawan.c")
+				   "lorawan.c"
+				   "wifi.c")
 				   
 set(COMPONENT_ADD_INCLUDEDIRS "")
 

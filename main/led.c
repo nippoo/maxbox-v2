@@ -34,7 +34,7 @@ void led_init(void)
     };
 
     i2c_param_config(I2C_HOST_ID, &conf);
-    i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, 0);
+    i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, ESP_INTR_FLAG_LOWMED);
 
     const lp50xx_start_args_t lp50xx_start_args = {
         .i2c_addr = 0x3C,

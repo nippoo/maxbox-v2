@@ -12,6 +12,9 @@
 
 #include "rc522.h"
 
+#include "esp_intr_types.h"
+
+
 static const char* TAG = "ESP-RC522";
 
 struct rc522 {
@@ -45,7 +48,8 @@ static esp_err_t rc522_spi_init() {
         .mosi_io_num = hndl->config->mosi_io,
         .sclk_io_num = hndl->config->sck_io,
         .quadwp_io_num = -1,
-        .quadhd_io_num = -1
+        .quadhd_io_num = -1,
+        .intr_flags = ESP_INTR_FLAG_LOWMED
     };
 
     spi_device_interface_config_t devcfg = {

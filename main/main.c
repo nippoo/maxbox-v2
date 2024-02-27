@@ -20,6 +20,7 @@
 #include "vehicle.h"
 #include "lorawan.h"
 #include "telemetry.h"
+#include "wifi.h"
 
 #include <time.h>
 #include <sys/time.h>
@@ -29,6 +30,11 @@
 #include "esp_timer.h"
 #include "esp_check.h"
 #include "esp_mac.h"
+#include "esp_event.h"
+#include "esp_netif.h"
+
+#include "esp_intr_types.h"
+#include "esp_intr_alloc.h"
 
 static const char* TAG = "MaxBox";
 
@@ -89,19 +95,36 @@ static void io_init(void)
     gpio_set_level(LED_STATUS_PIN, 1);
 }
 
+static void core1init(void* pvParameter)
+{
+    // HACK: we have to initialise some tasks pinned to the second core. Interrupts are generally assigned to
+    // the core on which the task runs and we run out of them on core 0, hence manually initialising application task
+    // interrupts on core 1. We choose the routines that are fast to initialise so the LED feedback is still vaguely
+    // correct
+
+    touch_init();
+    vehicle_init();
+    lorawan_init();
+
+    vTaskDelete(NULL);
+}
+
 void app_main(void)
 {
     mb = calloc(1, sizeof(struct maxbox));
     mb->tel = calloc(1, sizeof(telemetry_t));
 
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
     io_init();
     flash_init();
     telemetry_init();
     led_init();
-    touch_init();
     sim7600_init();
-    vehicle_init();
-    lorawan_init();
+    wifi_init();
+    wifi_connect();
+    xTaskCreatePinnedToCore(core1init, "core1init", 1024 * 4, (void* )0, 3, NULL, 1);
 
     led_update(LED_IDLE); // boot complete
     ESP_LOGI(TAG, "Boot complete");

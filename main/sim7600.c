@@ -157,9 +157,6 @@ void gnss_task(void *args)
 
 esp_err_t sim7600_init()
 {
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
     esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG("internet");
     esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
     esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();

@@ -186,7 +186,7 @@ esp_err_t vehicle_init()
         return ESP_FAIL;
     }
 
-    xTaskCreatePinnedToCore(can_receive_task, "can_receive_task", 4096, NULL, 3, NULL, tskNO_AFFINITY);
+    xTaskCreatePinnedToCore(can_receive_task, "can_receive_task", 4096, NULL, 3, NULL, 1);
 
     return ESP_OK;
 }
