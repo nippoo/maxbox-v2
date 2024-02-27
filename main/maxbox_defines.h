@@ -11,7 +11,7 @@ extern "C" {
 
 #define TAG_CHECK_INTERVAL_MS       	500
 
-#define LORA_TX_INTERVAL_MS             30000
+#define LORA_TX_INTERVAL_MS             240000
 #define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF8
 
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
@@ -61,6 +61,17 @@ extern "C" {
 #define I2C_HOST_ID     0
 #define RFID_SPI_HOST_ID     SPI2_HOST
 #define LORA_SPI_HOST_ID     SPI3_HOST
+
+// WiFi/HTTP
+#define ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID
+#define ESP_WIFI_PASS      CONFIG_ESP_WIFI_PASSWORD
+#define API_SECRET         CONFIG_MAXBOX_API_SECRET
+#define FW_VERSION         CONFIG_MAXBOX_FW_VERSION
+
+#define MAX_WIFI_RETRY           3
+#define MAX_HTTP_RECV_BUFFER        512
+#define MAX_HTTP_OUTPUT_BUFFER      2048
+#define MAX_WIFI_WAIT_MS                 5000 // maximum time to wait for wifi connection
 
 #define box_timestamp() esp_timer_get_time()/1000000
 
