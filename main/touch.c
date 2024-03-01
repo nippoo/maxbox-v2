@@ -11,6 +11,7 @@
 #include "led.h"
 #include "vehicle.h"
 #include "telemetry.h"
+#include "http.h"
 
 #include "maxbox_defines.h"
 
@@ -28,8 +29,6 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
 
     mb->lock_desired = !mb->lock_desired;
 
-    vehicle_un_lock();
-
     // first let's check if this is a tag in our operator card list
     int i;
     for (i=0; i<MAX_OPERATOR_CARDS; i++)
@@ -42,6 +41,8 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
             break;
         }
     }
+
+    http_send(card_id);
 }
 
 void touch_task(void *args)

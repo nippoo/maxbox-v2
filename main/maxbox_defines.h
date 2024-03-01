@@ -68,10 +68,13 @@ extern "C" {
 #define API_SECRET         CONFIG_MAXBOX_API_SECRET
 #define FW_VERSION         CONFIG_MAXBOX_FW_VERSION
 
-#define MAX_WIFI_RETRY           3
+#define API_ENDPOINT_TOUCH          CONFIG_MAXBOX_API_ROOT "touch"
+#define API_ENDPOINT_TELEMETRY      CONFIG_MAXBOX_API_ROOT "telemetry"
+
+#define MAX_WIFI_RETRY              3
 #define MAX_HTTP_RECV_BUFFER        512
 #define MAX_HTTP_OUTPUT_BUFFER      2048
-#define MAX_WIFI_WAIT_MS                 5000 // maximum time to wait for wifi connection
+#define MAX_WIFI_WAIT_MS            5000 // maximum time to wait for wifi connection
 
 #define box_timestamp() esp_timer_get_time()/1000000
 
