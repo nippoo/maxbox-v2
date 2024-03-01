@@ -18,9 +18,9 @@
 
 #include "cJSON.h"
 
-
 #include "wifi.h"
 #include "http.h"
+#include "telemetry.h"
 
 static const char* TAG = "MaxBox-HTTP";
 
@@ -219,15 +219,7 @@ void json_return_handler(char* result)
 
 void http_send(char* card_id)
 {
-    cJSON *root;
-    root=cJSON_CreateObject();
-    cJSON_AddItemToObject(root, "card_id", cJSON_CreateString(card_id));
-
-    char *rendered=cJSON_Print(root);
-    strcpy(req.data, rendered);
-
-    cJSON_Delete(root);
-    free(rendered);
+    json_format_telemetry(req.data, card_id);
 
     req.callback = json_return_handler;
     req.url = API_ENDPOINT_TOUCH;

@@ -21,7 +21,7 @@ void lora_format_telemetry(uint8_t *lm);
 /**
  * @brief Format LoRaWAN telemetry packet contents
  */
-void json_format_telemetry(char *json_string);
+void json_format_telemetry(char *json_string, char* card_id);
 
 /**
  * @brief Initialize telemetry and box monitoring

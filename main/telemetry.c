@@ -72,13 +72,15 @@ void print_all_telemetry()
     ESP_LOGI(TAG, "Box uptime: %ld", box_ts);
 }
 
-void json_format_telemetry(char *json_string)
+void json_format_telemetry(char *json_string, char *card_id)
 {
     update_battery_voltage();
 
     cJSON *root, *tel, *tp, *gnss, *soc, *soh, *odo, *doors, *ab, *maxbox;
     root=cJSON_CreateObject();
     cJSON_AddItemToObject(root, "telemetry", tel=cJSON_CreateObject());
+
+    if (card_id) cJSON_AddItemToObject(root, "card_id", cJSON_CreateString(card_id));
 
     cJSON_AddItemToObject(tel, "gnss", gnss=cJSON_CreateObject());
     cJSON_AddNumberToObject(gnss, "lat",  mb->tel->gnss_latitude);
