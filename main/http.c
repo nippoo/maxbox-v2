@@ -24,7 +24,6 @@
 
 static const char* TAG = "MaxBox-HTTP";
 
-rest_request_t req;
 char firmware_update_url[255];
 
 esp_err_t _http_event_handler(esp_http_client_event_t *evt)
@@ -128,7 +127,7 @@ static esp_err_t _http_set_headers(esp_http_client_handle_t http_client)
 
 static void http_auth_rfid(void *rest_request)
 {
-    const rest_request_t *request = (rest_request_t *) rest_request;
+    const rest_request_t request = rest_request;
 
     char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
 
@@ -169,7 +168,7 @@ static void http_auth_rfid(void *rest_request)
     }
     esp_http_client_cleanup(client);
 
-    ESP_LOGI(TAG, "Sent auth request");
+    free(rest_request);
 
     vTaskDelete(NULL);
 }
@@ -219,13 +218,16 @@ void json_return_handler(char* result)
 
 void http_send(char* card_id)
 {
-    json_format_telemetry(req.data, card_id);
+    rest_request_t req = NULL;
+    req = calloc(1, sizeof(struct rest_request));
 
-    req.callback = json_return_handler;
-    req.url = API_ENDPOINT_TOUCH;
-    req.alert_on_error = pdTRUE;
+    json_format_telemetry(req->data, card_id);
 
-    xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, &req, 2, NULL);
+    req->callback = json_return_handler;
+    req->url = API_ENDPOINT_TOUCH;
+    req->alert_on_error = pdTRUE;
+
+    xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, req, 2, NULL);
 }
 
 void firmware_update(void* pxParameters)
