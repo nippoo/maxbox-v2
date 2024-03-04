@@ -15,27 +15,6 @@
 
 static const char* TAG = "MaxBox-LoRaWAN";
 
-void lorawan_send(void* pvParameter)
-{
-    while (1) {
-        print_all_telemetry();
-        uint8_t lora_telemetry_message[19] = {0};
-        lora_format_telemetry(lora_telemetry_message);
-
-        ESP_LOGI(TAG, "Sending LoRaWAN message");
-        ttn_response_code_t res = ttn_transmit_message(lora_telemetry_message, sizeof(lora_telemetry_message) - 1, 1, false);
-        if(res == TTN_SUCCESSFUL_TRANSMISSION)
-            {
-                ESP_LOGI(TAG, "Message sent");
-            } else
-            {
-                ESP_LOGE(TAG, "Message sending failed");
-            }
-
-        vTaskDelay(LORA_TX_INTERVAL_MS / portTICK_PERIOD_MS);
-    }
-}
-
 void lorawan_rx_callback(const uint8_t* message, size_t length, ttn_port_t port)
 {
     ESP_LOGI(TAG, "Message of %d bytes received", length, port);
@@ -90,7 +69,6 @@ esp_err_t lorawan_init(void)
         ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
         ttn_set_max_tx_pow(14);
 
-        xTaskCreate(lorawan_send, "lorawan_send", 1024 * 4, (void* )0, 3, NULL);
         return ESP_OK;
     }
     else

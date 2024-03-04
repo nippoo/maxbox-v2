@@ -11,9 +11,14 @@
 #include "string.h"
 #include "cJSON.h"
 
+#include "ttn.h"
+
 #include "maxbox_defines.h"
+#include "lorawan.h"
 
 #include "telemetry.h"
+#include "http.h"
+
 
 static const char* TAG = "MaxBox-telemetry";
 
@@ -219,6 +224,30 @@ void lora_format_telemetry(uint8_t *lm)
     memcpy(lm+17, &tp_age_byte, 1);
 }
 
+void telemetry_send(void* pvParameter)
+{
+    while (1) {
+        print_all_telemetry();
+
+        http_send(NULL);
+
+        uint8_t lora_telemetry_message[19] = {0};
+        lora_format_telemetry(lora_telemetry_message);
+
+        ESP_LOGI(TAG, "Sending LoRaWAN message");
+        ttn_response_code_t res = ttn_transmit_message(lora_telemetry_message, sizeof(lora_telemetry_message) - 1, 1, false);
+        if(res == TTN_SUCCESSFUL_TRANSMISSION)
+            {
+                ESP_LOGI(TAG, "Message sent");
+            } else
+            {
+                ESP_LOGE(TAG, "Message sending failed");
+            }
+
+        vTaskDelay(LORA_TX_INTERVAL_MS / portTICK_PERIOD_MS);
+    }
+}
+
 esp_err_t telemetry_init(void)
 {
     // Set up oneshot measurement for VBAT ADC
@@ -243,6 +272,10 @@ esp_err_t telemetry_init(void)
     adc_cali_create_scheme_curve_fitting(&cali_config, &adc1_cali_handle);
 
     update_battery_voltage();
+
+    lorawan_init();
+
+    xTaskCreate(telemetry_send, "telemetry_send", 1024 * 4, (void* )0, 3, NULL);
 
     return ESP_OK;
 }

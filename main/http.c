@@ -21,6 +21,8 @@
 #include "wifi.h"
 #include "http.h"
 #include "telemetry.h"
+#include "vehicle.h"
+#include "flash.h"
 
 static const char* TAG = "MaxBox-HTTP";
 
@@ -176,44 +178,71 @@ static void http_auth_rfid(void *rest_request)
 void json_return_handler(char* result)
 {
     cJSON *result_json = cJSON_Parse(result);
-    
-    // if(cJSON_GetObjectItem(result_json, "action"))
+
+    if(cJSON_GetObjectItem(result_json, "operator_card_list"))
+    {
+        cJSON *card_list = cJSON_GetObjectItem(result_json, "operator_card_list");
+        cJSON *recv_etag = cJSON_GetObjectItem(card_list, "etag");
+
+        if (cJSON_IsNumber(recv_etag))
+        {
+            if (recv_etag->valuedouble != mb->etag)
+            {
+                ESP_LOGI(TAG, "New etag is %d", recv_etag->valueint);
+
+                cJSON *card;
+                cJSON *op_cards = cJSON_GetObjectItem(card_list, "cards");
+
+                int i = 0;
+                cJSON_ArrayForEach(card, op_cards)
+                {
+                    char *cardid = card->valuestring;
+                    ESP_LOGI(TAG, "Added card to operator list with id: %s", cardid);
+                    strncpy(mb->operator_card_list[i], cardid, 9);
+                    i++;
+                }
+
+                for (; i<MAX_OPERATOR_CARDS; i++)
+                {
+                    strcpy(mb->operator_card_list[i], "voidvoid");
+                }
+
+                mb->etag = recv_etag->valuedouble;
+
+                flash_write_all();
+            }
+            
+        }
+    }
+
+    // Optionally, there may be an action to manually lock or unlock the car remotely
+    if(cJSON_GetObjectItem(result_json, "action"))
+    {
+        char *action = cJSON_GetObjectItem(result_json, "action")->valuestring;
+        if (strcmp(action, "lock") == 0)
+        {
+            mb->lock_desired = 1;
+            vehicle_un_lock();
+        } 
+        else if (strcmp(action, "unlock") == 0)
+        {
+            mb->lock_desired = 0;
+            vehicle_un_lock();
+        }
+    }
+
+    // if(cJSON_GetObjectItem(result_json, "firmware_update_url"))
     // {
-    //     char *action = cJSON_GetObjectItem(result_json, "action")->valuestring;
-        
-    //     if (strcmp(action, "lock") == 0)
-    //     {
-    //         vehicle_lock_doors();
-    //     } 
-    //     else if (strcmp(action, "unlock") == 0)
-    //     {
-    //         vehicle_unlock_doors();
-    //     } 
-    //     else if (strcmp(action, "reject") == 0)
-    //     {
-    //         ESP_LOGI(TAG, "Request rejected");
-
-    //         led_update(DENY); 
-    //         vTaskDelay(1000 / portTICK_PERIOD_MS);
-    //         led_update(IDLE);
-
-    //         xEventGroupSetBits(s_status_group, TAG_DONE_BIT);
-    //     } 
-    // }
-    // else
-    // {
-    //     ESP_LOGE(TAG, "Card unlock error");
-
-    //     led_update(ERROR);
-    //     vTaskDelay(2000 / portTICK_PERIOD_MS);
-    //     led_update(IDLE);
-
-    //     xEventGroupSetBits(s_status_group, TAG_DONE_BIT);
-    // }
-    ESP_LOGI(TAG, "Received data, %s!", result);
+    //     char *fw_url = cJSON_GetObjectItem(result_json, "firmware_update_url")->valuestring;
+    //     strcpy(firmware_update_url, fw_url);
+    //     ESP_LOGI(TAG, "Firmware update detected, updating from URL %s", firmware_update_url);
+    //     xEventGroupSetBits(s_status_group, FIRMWARE_UPDATING_BIT);      
+    //     xTaskCreate(firmware_update, "firmware_update", 8192, NULL, 5, NULL);
+    // } 
 
     cJSON_Delete(result_json);
-
+    
+    ESP_LOGI(TAG, "Finished sending telemetry");
 }
 
 void http_send(char* card_id)
@@ -224,8 +253,16 @@ void http_send(char* card_id)
     json_format_telemetry(req->data, card_id);
 
     req->callback = json_return_handler;
-    req->url = API_ENDPOINT_TOUCH;
     req->alert_on_error = pdTRUE;
+
+    if(card_id)
+    {
+        req->url = API_ENDPOINT_TOUCH;
+    }
+    else
+    {
+        req->url = API_ENDPOINT_TELEMETRY;
+    }
 
     xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, req, 2, NULL);
 }
