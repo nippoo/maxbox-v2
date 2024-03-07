@@ -53,9 +53,10 @@ void led_init(void)
         ESP_LOGE(TAG, "Failed to initialize LED mutex");
     }
 
-    xTaskCreate(led_task, "led_task", 4096, NULL, 6, NULL);
+    gpio_set_direction(LED_STATUS_PIN, GPIO_MODE_OUTPUT);
+    gpio_set_level(LED_STATUS_PIN, 1);
 
-    led_update(LED_BOOT);
+    xTaskCreate(led_task, "led_task", 4096, NULL, 5, NULL);
 }
 
 void led_update(led_status_t st)
@@ -72,12 +73,12 @@ void led_update(led_status_t st)
     if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX)
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, night mode", lux);
-        lp50xx_set_global_scale(1.0);
+        // lp50xx_set_global_scale(1.0);
     }
     else
     {
         ESP_LOGI(TAG, "Ambient light: %i lux, full brightness", lux);
-        lp50xx_set_global_scale(1.0);
+        // lp50xx_set_global_scale(1.0);
     }
 }
 

@@ -16,7 +16,8 @@ set(COMPONENT_SRCS "main.c"
 				   "lorawan.c"
 				   "wifi.c"
 				   "http.c"
-				   "flash.c")
+				   "flash.c"
+				   "state.c")
 				   
 set(COMPONENT_ADD_INCLUDEDIRS "")
 

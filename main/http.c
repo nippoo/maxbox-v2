@@ -23,6 +23,7 @@
 #include "telemetry.h"
 #include "vehicle.h"
 #include "flash.h"
+#include "state.h"
 
 static const char* TAG = "MaxBox-HTTP";
 
@@ -127,56 +128,10 @@ static esp_err_t _http_set_headers(esp_http_client_handle_t http_client)
     return ESP_OK;
 }
 
-static void http_auth_rfid(void *rest_request)
+event_return_t json_return_handler(char* result)
 {
-    const rest_request_t request = rest_request;
+    event_return_t status = BOX_ERROR;
 
-    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
-
-    esp_http_client_config_t config = {
-        .url = request->url,
-        .user_agent = "Carshare Box v2",
-        .event_handler = _http_event_handler,
-        .user_data = local_response_buffer,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-    };
-    esp_http_client_handle_t client = esp_http_client_init(&config);
-
-    ESP_LOGI(TAG, "URL is %s", request->url);
-    ESP_LOGI(TAG, "POST DATA is %s", request->data);
-    esp_http_client_set_method(client, HTTP_METHOD_POST);
-
-    _http_set_headers(client);
-
-    esp_http_client_set_post_field(client, request->data, strlen(request->data));
-    esp_err_t err = esp_http_client_perform(client);
-
-    if (err == ESP_OK) {
-        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
-
-                ESP_LOGI(TAG, "Got data: %s", local_response_buffer);
-
-                request->callback(local_response_buffer);
-
-    } else {
-        
-        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
-        // if (request->alert_on_error)
-        // {
-        //     led_update(ERROR);
-        // }
-    }
-    esp_http_client_cleanup(client);
-
-    free(rest_request);
-
-    vTaskDelete(NULL);
-}
-
-void json_return_handler(char* result)
-{
     cJSON *result_json = cJSON_Parse(result);
 
     if(cJSON_GetObjectItem(result_json, "operator_card_list"))
@@ -211,7 +166,6 @@ void json_return_handler(char* result)
 
                 flash_write_all();
             }
-            
         }
     }
 
@@ -222,12 +176,16 @@ void json_return_handler(char* result)
         if (strcmp(action, "lock") == 0)
         {
             mb->lock_desired = 1;
-            vehicle_un_lock();
-        } 
+            status = vehicle_un_lock();
+        }
         else if (strcmp(action, "unlock") == 0)
         {
             mb->lock_desired = 0;
-            vehicle_un_lock();
+            status = vehicle_un_lock();
+        }
+        else if (strcmp(action, "reject") == 0)
+        {
+            status = BOX_DENY;
         }
     }
 
@@ -236,13 +194,67 @@ void json_return_handler(char* result)
     //     char *fw_url = cJSON_GetObjectItem(result_json, "firmware_update_url")->valuestring;
     //     strcpy(firmware_update_url, fw_url);
     //     ESP_LOGI(TAG, "Firmware update detected, updating from URL %s", firmware_update_url);
-    //     xEventGroupSetBits(s_status_group, FIRMWARE_UPDATING_BIT);      
+    //     xEventGroupSetBits(s_status_group, FIRMWARE_UPDATING_BIT);
     //     xTaskCreate(firmware_update, "firmware_update", 8192, NULL, 5, NULL);
-    // } 
+    // }
 
     cJSON_Delete(result_json);
-    
-    ESP_LOGI(TAG, "Finished sending telemetry");
+
+    return status;
+}
+
+static void http_auth_rfid(void *rest_request)
+{
+    event_return_t status = BOX_ERROR;
+
+    const rest_request_t request = rest_request;
+    char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
+
+    esp_http_client_config_t config = {
+        .user_agent = "Carshare Box v2",
+        .event_handler = _http_event_handler,
+        .user_data = local_response_buffer,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+    };
+
+    if(request->box_event == EVT_TOUCHED)
+    {
+        config.url = API_ENDPOINT_TOUCH;
+    }
+    else
+    {
+        config.url = API_ENDPOINT_TELEMETRY;
+    }
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+
+    ESP_LOGI(TAG, "URL is %s", config.url);
+    ESP_LOGI(TAG, "POST DATA is %s", request->data);
+    esp_http_client_set_method(client, HTTP_METHOD_POST);
+
+    _http_set_headers(client);
+
+    esp_http_client_set_post_field(client, request->data, strlen(request->data));
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
+                esp_http_client_get_status_code(client),
+                esp_http_client_get_content_length(client));
+
+        ESP_LOGI(TAG, "Got data: %s", local_response_buffer);
+
+        status = json_return_handler(local_response_buffer);
+
+    } else {
+        ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+        status = BOX_ERROR;
+    }
+
+    esp_http_client_cleanup(client);
+    mb_complete_event(request->box_event, status);
+    free(request);
+    vTaskDelete(NULL);
 }
 
 void http_send(char* card_id)
@@ -252,19 +264,14 @@ void http_send(char* card_id)
 
     json_format_telemetry(req->data, card_id);
 
-    req->callback = json_return_handler;
-    req->alert_on_error = pdTRUE;
-
     if(card_id)
     {
-        req->url = API_ENDPOINT_TOUCH;
-    }
-    else
-    {
-        req->url = API_ENDPOINT_TELEMETRY;
+        req->box_event = EVT_TOUCHED;
+    } else {
+        req->box_event = EVT_TELEMETRY;
     }
 
-    xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, req, 2, NULL);
+    xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, req, 6, NULL);
 }
 
 void firmware_update(void* pxParameters)

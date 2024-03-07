@@ -12,6 +12,7 @@
 #include "vehicle.h"
 #include "telemetry.h"
 #include "http.h"
+#include "state.h"
 
 #include "maxbox_defines.h"
 
@@ -19,8 +20,9 @@ static const char* TAG = "MaxBox-touch";
 
 void touch_handler(void *serial_no) // serial number is always 4 bytes long
 {
+    mb_begin_event(EVT_TOUCHED);
+
     const uint8_t* sn = (uint8_t *) serial_no;
-    led_update(LED_TOUCH);
 
     char card_id[9];
     sprintf(card_id, "%02x%02x%02x%02x", sn[0], sn[1], sn[2], sn[3]);
@@ -37,11 +39,11 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
         {
             ESP_LOGI(TAG, "Operator card detected");
             mb->lock_desired = !mb->lock_desired;
-            vehicle_un_lock();
-            break;
+            event_return_t status = vehicle_un_lock();
+            mb_complete_event(EVT_TOUCHED, status);
+            return;
         }
     }
-
     http_send(card_id);
 }
 

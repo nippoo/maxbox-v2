@@ -11,6 +11,11 @@
 
 static const char* TAG = "MaxBox-vehicle";
 
+static EventGroupHandle_t s_can_event_group;
+
+#define CAN_SENDING_BIT          BIT0
+#define CAN_SENDING_DONE_BIT     BIT1
+
 void can_receive_task(void *arg)
 {
     // Receives and processes CAN bus data from Nissan E-NV200/Leaf and updates telemetry
@@ -64,6 +69,17 @@ static void send_can(twai_message_t message)
 
 static void un_lock()
 {
+    if (xEventGroupGetBits(s_can_event_group) & CAN_SENDING_BIT)
+    {
+        xEventGroupWaitBits(s_can_event_group,
+            CAN_SENDING_DONE_BIT,
+            pdTRUE,
+            pdFALSE,
+            20000/portTICK_PERIOD_MS);
+    }
+
+    xEventGroupSetBits(s_can_event_group, CAN_SENDING_BIT);
+
     twai_message_t packet1;
     packet1.identifier = 0x745;
     packet1.data_length_code = 8;
@@ -144,19 +160,13 @@ static void un_lock()
     vTaskDelay(500 / portTICK_PERIOD_MS);
     send_can(packet1);
 
-    if(mb->lock_desired)
-    {
-        ESP_LOGI(TAG, "Car locked");
-        led_update(LED_LOCKED);
-    } else {
-        ESP_LOGI(TAG, "Car unlocked");
-        led_update(LED_UNLOCKED);
-    }
+    xEventGroupClearBits(s_can_event_group, CAN_SENDING_BIT);
+    xEventGroupSetBits(s_can_event_group, CAN_SENDING_DONE_BIT);
 
     vTaskDelete(NULL);
 }
 
-esp_err_t vehicle_init()
+void vehicle_init()
 {
     // TODO: Sleep CAN transmitter until required (to save power) 
     // For the moment we just leave it awake all the time
@@ -170,28 +180,28 @@ esp_err_t vehicle_init()
 
     g_config.intr_flags = ESP_INTR_FLAG_LOWMED;
 
-    //Install CAN driver
-    if (twai_driver_install(&g_config, &t_config, &f_config) == ESP_OK) {
-        ESP_LOGI(TAG, "Driver installed");
-    } else {
-        ESP_LOGE(TAG, "Failed to install driver");
-        return ESP_FAIL;
-    }
+    twai_driver_install(&g_config, &t_config, &f_config);
+    twai_start();
 
-    //Start CAN driver
-    if (twai_start() == ESP_OK) {
-        ESP_LOGI(TAG, "Driver started");
-    } else {
-        ESP_LOGE(TAG, "Failed to start driver");
-        return ESP_FAIL;
-    }
+    s_can_event_group = xEventGroupCreate();
 
     xTaskCreatePinnedToCore(can_receive_task, "can_receive_task", 4096, NULL, 3, NULL, 1);
-
-    return ESP_OK;
 }
 
-void vehicle_un_lock()
+event_return_t vehicle_un_lock()
 {
-    xTaskCreate(&un_lock, "un_lock", 8192, NULL, 2, NULL);
+    xTaskCreate(&un_lock, "un_lock", 8192, NULL, 6, NULL);
+
+    xEventGroupWaitBits(s_can_event_group,
+        CAN_SENDING_DONE_BIT,
+        pdTRUE,
+        pdFALSE,
+        20000/portTICK_PERIOD_MS);
+
+    if(mb->lock_desired)
+    {
+        return BOX_LOCKED;
+    } else {
+        return BOX_UNLOCKED;
+    }
 }

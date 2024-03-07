@@ -3,6 +3,7 @@
 #pragma once
 
 #include "driver/twai.h"
+#include "maxbox_defines.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -18,12 +19,12 @@ void can_receive_task(void *arg);
  * @param vehicle Vehicle struct to be updated when CAN bus wakes
  * @return ESP_OK on success
  */
-esp_err_t vehicle_init();
+void vehicle_init();
 
 /**
  * @brief Lock / unlock vehicle doors, depending on mb->lock_desired
  */
-void vehicle_un_lock();
+event_return_t vehicle_un_lock();
 
 #ifdef __cplusplus
 }

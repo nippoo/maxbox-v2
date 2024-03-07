@@ -15,14 +15,14 @@
 
 #include "maxbox_defines.h"
 #include "lorawan.h"
-
+#include "state.h"
 #include "telemetry.h"
 #include "http.h"
 
 
 static const char* TAG = "MaxBox-telemetry";
 
-#define ts_stale(ts) ((box_timestamp() - ts) > (LORA_TX_INTERVAL_MS/1000))
+#define ts_stale(ts) ((box_timestamp() - ts) > (LORA_TELEMETRY_INTERVAL_MS/1000))
 
 adc_oneshot_unit_handle_t adc1_handle;
 adc_cali_handle_t adc1_cali_handle = NULL;
@@ -224,13 +224,19 @@ void lora_format_telemetry(uint8_t *lm)
     memcpy(lm+17, &tp_age_byte, 1);
 }
 
-void telemetry_send(void* pvParameter)
+void wifi_telemetry_task(void* pvParameter)
 {
     while (1) {
-        print_all_telemetry();
-
+        mb_begin_event(EVT_TELEMETRY);
         http_send(NULL);
 
+        vTaskDelay(WIFI_TELEMETRY_INTERVAL_MS / portTICK_PERIOD_MS);
+    }
+}
+
+void lorawan_telemetry_task(void* pvParameter)
+{
+    while (1) {
         uint8_t lora_telemetry_message[19] = {0};
         lora_format_telemetry(lora_telemetry_message);
 
@@ -244,7 +250,7 @@ void telemetry_send(void* pvParameter)
                 ESP_LOGE(TAG, "Message sending failed");
             }
 
-        vTaskDelay(LORA_TX_INTERVAL_MS / portTICK_PERIOD_MS);
+        vTaskDelay(LORA_TELEMETRY_INTERVAL_MS / portTICK_PERIOD_MS);
     }
 }
 
@@ -275,7 +281,8 @@ esp_err_t telemetry_init(void)
 
     lorawan_init();
 
-    xTaskCreate(telemetry_send, "telemetry_send", 1024 * 4, (void* )0, 3, NULL);
+    xTaskCreate(wifi_telemetry_task, "wifi_telemetry", 1024 * 4, (void* )0, 3, NULL);
+    xTaskCreate(lorawan_telemetry_task, "lorawan_telemetry", 1024 * 4, (void* )0, 3, NULL);
 
     return ESP_OK;
 }

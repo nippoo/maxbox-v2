@@ -21,6 +21,7 @@
 #include "telemetry.h"
 #include "wifi.h"
 #include "flash.h"
+#include "state.h"
 
 #include <time.h>
 #include <sys/time.h>
@@ -39,12 +40,6 @@ static const char* TAG = "MaxBox";
 
 maxbox_t mb = NULL;
 
-static void io_init(void)
-{
-    gpio_set_direction(LED_STATUS_PIN, GPIO_MODE_OUTPUT);
-    gpio_set_level(LED_STATUS_PIN, 1);
-}
-
 static void core1init(void* pvParameter)
 {
     // HACK: we have to initialise some tasks pinned to the second core. Interrupts are generally assigned to
@@ -56,7 +51,7 @@ static void core1init(void* pvParameter)
     vehicle_init();
     telemetry_init();
 
-    led_update(LED_IDLE); // boot complete
+    mb_complete_event(EVT_BOOT, BOX_OK); // boot complete
     ESP_LOGI(TAG, "Boot complete");
 
     vTaskDelete(NULL);
@@ -70,12 +65,12 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
 
-    io_init();
-    flash_init();
-
+    state_init();
     led_init();
+    mb_begin_event(EVT_BOOT); // boot begin
+
+    flash_init();
     sim7600_init();
     wifi_init();
-    wifi_connect();
     xTaskCreatePinnedToCore(core1init, "core1init", 1024 * 4, (void* )0, 3, NULL, 1);
 }
