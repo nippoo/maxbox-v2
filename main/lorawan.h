@@ -9,7 +9,7 @@ extern "C" {
 /**
  * @brief Initialize LoRaWAN
  */
-esp_err_t lorawan_init();
+void lorawan_init_task(void* arg);
 
 #ifdef __cplusplus
 }

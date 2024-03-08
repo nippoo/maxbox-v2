@@ -12,7 +12,6 @@
 
 #include "esp_intr_types.h"
 
-
 static const char* TAG = "MaxBox-LoRaWAN";
 
 void lorawan_rx_callback(const uint8_t* message, size_t length, ttn_port_t port)
@@ -20,7 +19,7 @@ void lorawan_rx_callback(const uint8_t* message, size_t length, ttn_port_t port)
     ESP_LOGI(TAG, "Message of %d bytes received", length, port);
 }
 
-esp_err_t lorawan_init(void)
+void lorawan_init_task(void* arg)
 {
     // Generate devEUI from HW MAC by padding middle two bytes with FF
     char deveui_string[17];
@@ -30,10 +29,8 @@ esp_err_t lorawan_init(void)
 
     ESP_LOGI(TAG, "DevEUI (generated): %s", deveui_string);
 
-    esp_err_t err;
     // Initialize the GPIO ISR handler service
-    err = gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
-    ESP_ERROR_CHECK(err);
+    gpio_install_isr_service(ESP_INTR_FLAG_IRAM);
 
     // Initialize SPI bus
     spi_bus_config_t spi_bus_config = {
@@ -44,8 +41,7 @@ esp_err_t lorawan_init(void)
         .quadhd_io_num = -1,
         .intr_flags = ESP_INTR_FLAG_LOWMED,
     }; 
-    err = spi_bus_initialize(LORA_SPI_HOST_ID, &spi_bus_config, LORA_SPI_DMA_CHAN);
-    ESP_ERROR_CHECK(err);
+    spi_bus_initialize(LORA_SPI_HOST_ID, &spi_bus_config, LORA_SPI_DMA_CHAN);
 
     // Initialize TTN
     ttn_init();
@@ -61,19 +57,22 @@ esp_err_t lorawan_init(void)
     ttn_set_max_tx_pow(14);
 
     ESP_LOGI(TAG, "Joining");
-    if (ttn_join_with_keys(deveui_string, "0000000000000000", CONFIG_LORAWAN_APPKEY))
+    while (!mb->lorawan_joined)
     {
-        ESP_LOGI(TAG, "Joined");
+        if (ttn_join_with_keys(deveui_string, "0000000000000000", CONFIG_LORAWAN_APPKEY))
+        {
+            ESP_LOGI(TAG, "Joined");
 
-        ttn_set_adr_enabled(false);
-        ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
-        ttn_set_max_tx_pow(14);
-
-        return ESP_OK;
+            ttn_set_adr_enabled(false);
+            ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
+            ttn_set_max_tx_pow(14);
+            mb->lorawan_joined = true;
+        }
+        else
+        {
+            ESP_LOGE(TAG, "Join failed. Waiting to retry");
+        }
+        vTaskDelay(LORA_JOIN_RETRY_INTERVAL_MS / portTICK_PERIOD_MS);
     }
-    else
-    {
-        ESP_LOGE(TAG, "Join failed");
-        return ESP_FAIL;
-    }
+    vTaskDelete(NULL);
 }

@@ -237,19 +237,22 @@ void lorawan_telemetry_task(void* pvParameter)
     vTaskDelay(16000 / portTICK_PERIOD_MS); // initial delay to reduce risk of syncing up LoRaWAN and WiFi telemetry
 
     while (1) {
-        uint8_t lora_telemetry_message[19] = {0};
-        lora_format_telemetry(lora_telemetry_message);
+        if(mb->lorawan_joined)
+        {
+            ESP_LOGI(TAG, "Sending LoRaWAN telemetry packet");
 
-        ESP_LOGI(TAG, "Sending LoRaWAN message");
-        ttn_response_code_t res = ttn_transmit_message(lora_telemetry_message, sizeof(lora_telemetry_message) - 1, 1, false);
-        if(res == TTN_SUCCESSFUL_TRANSMISSION)
+            uint8_t lora_telemetry_message[19] = {0};
+            lora_format_telemetry(lora_telemetry_message);
+            ttn_response_code_t res = ttn_transmit_message(lora_telemetry_message, sizeof(lora_telemetry_message) - 1, 1, false);
+
+            if(res == TTN_SUCCESSFUL_TRANSMISSION)
             {
                 ESP_LOGI(TAG, "Message sent");
             } else
             {
                 ESP_LOGE(TAG, "Message sending failed");
             }
-
+        }
         vTaskDelay(LORA_TELEMETRY_INTERVAL_MS / portTICK_PERIOD_MS);
     }
 }
@@ -286,7 +289,7 @@ esp_err_t telemetry_init(void)
     };
     adc_cali_create_scheme_curve_fitting(&cali_config, &adc1_cali_handle);
 
-    lorawan_init();
+    xTaskCreatePinnedToCore(lorawan_init_task, "lorawan_init", 4096, NULL, 3, NULL, 1);
 
     xTaskCreate(power_watchdog_task, "power_watchdog", 4096, NULL, 3, NULL);
     xTaskCreate(wifi_telemetry_task, "wifi_telemetry", 4096, NULL, 3, NULL);

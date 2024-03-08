@@ -10,7 +10,7 @@ extern "C" {
 // User config
 
 #define TAG_CHECK_INTERVAL_MS       	500
-#define LORA_TELEMETRY_INTERVAL_MS      480000
+#define LORA_TELEMETRY_INTERVAL_MS      48000
 #define WIFI_TELEMETRY_INTERVAL_MS      100000
 
 #define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF8
@@ -82,6 +82,7 @@ extern "C" {
 
 // Misc/enums
 #define POWER_WATCHDOG_INTERVAL_MS      30000
+#define LORA_JOIN_RETRY_INTERVAL_MS     60000
 
 typedef enum {EVT_BOOT, EVT_TOUCHED, EVT_TELEMETRY, EVT_FIRMWARE} box_event_t;
 typedef enum {BOX_OK, BOX_LOCKED, BOX_UNLOCKED, BOX_DENY, BOX_ERROR} event_return_t;
@@ -119,6 +120,7 @@ struct maxbox {
     int32_t etag;                                       /*<! etag for sequential operator card list update */
     char operator_card_list[MAX_OPERATOR_CARDS][9];     /*<! List of operator card IDs */
     bool lock_desired;                                  /*<! Desired lock status (0: unlocked, 1: locked) */
+    bool lorawan_joined;                                /*<! LoRaWAN successfully joined */
 };
 
 typedef struct maxbox* maxbox_t;
