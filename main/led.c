@@ -197,24 +197,16 @@ void led_task(void *args)
             led_swirl(500, elapsed_ms, 255, 255, 255, 10, 10, 10);
             break;
         case LED_LOCKED:
-                led_breathe(200, elapsed_ms, 0, 255, 0);
-            if (elapsed_ms > 1500)
-                led_update(LED_IDLE);
+            led_breathe(200, elapsed_ms, 0, 255, 0);
             break;
         case LED_UNLOCKED:
             led_breathe(200, elapsed_ms, 0, 0, 255);
-            if (elapsed_ms > 1500)
-                led_update(LED_IDLE);
             break;
         case LED_DENY:
             led_breathe(200, elapsed_ms, 255, 0, 0);
-            if (elapsed_ms > 1500)
-                led_update(LED_IDLE);
             break;
         case LED_ERROR:
             led_breathe_2colour(500, elapsed_ms, 255, 0, 255, 255, 0, 0);
-            if (elapsed_ms > 5000)
-                led_update(LED_IDLE);
             break;
         case LED_FIRMWARE:
             led_breathe_2colour(1000, elapsed_ms, 0, 255, 255, 255, 255, 0);

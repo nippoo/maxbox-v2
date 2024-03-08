@@ -13,6 +13,7 @@
 #include "telemetry.h"
 #include "http.h"
 #include "state.h"
+#include "wifi.h"
 
 #include "maxbox_defines.h"
 
@@ -44,6 +45,8 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
             return;
         }
     }
+
+    wifi_connect();
     http_send(card_id);
 }
 

@@ -47,9 +47,9 @@ static void core1init(void* pvParameter)
     // interrupts on core 1. We choose the routines that are fast to initialise so the LED feedback is still vaguely
     // correct
 
-    touch_init();
     vehicle_init();
     telemetry_init();
+    touch_init();
 
     mb_complete_event(EVT_BOOT, BOX_OK); // boot complete
     ESP_LOGI(TAG, "Boot complete");

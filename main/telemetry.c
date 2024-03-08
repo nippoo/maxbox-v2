@@ -79,8 +79,6 @@ void print_all_telemetry()
 
 void json_format_telemetry(char *json_string, char *card_id)
 {
-    update_battery_voltage();
-
     cJSON *root, *tel, *tp, *gnss, *soc, *soh, *odo, *doors, *ab, *maxbox;
     root=cJSON_CreateObject();
     cJSON_AddItemToObject(root, "telemetry", tel=cJSON_CreateObject());
@@ -236,6 +234,8 @@ void wifi_telemetry_task(void* pvParameter)
 
 void lorawan_telemetry_task(void* pvParameter)
 {
+    vTaskDelay(16000 / portTICK_PERIOD_MS); // initial delay to reduce risk of syncing up LoRaWAN and WiFi telemetry
+
     while (1) {
         uint8_t lora_telemetry_message[19] = {0};
         lora_format_telemetry(lora_telemetry_message);
@@ -252,6 +252,15 @@ void lorawan_telemetry_task(void* pvParameter)
 
         vTaskDelay(LORA_TELEMETRY_INTERVAL_MS / portTICK_PERIOD_MS);
     }
+}
+
+void power_watchdog_task(void *arg)
+{
+    while (1) {
+        update_battery_voltage();
+        vTaskDelay(POWER_WATCHDOG_INTERVAL_MS / portTICK_PERIOD_MS);
+    }
+    vTaskDelete(NULL);
 }
 
 esp_err_t telemetry_init(void)
@@ -277,12 +286,11 @@ esp_err_t telemetry_init(void)
     };
     adc_cali_create_scheme_curve_fitting(&cali_config, &adc1_cali_handle);
 
-    update_battery_voltage();
-
     lorawan_init();
 
-    xTaskCreate(wifi_telemetry_task, "wifi_telemetry", 1024 * 4, (void* )0, 3, NULL);
-    xTaskCreate(lorawan_telemetry_task, "lorawan_telemetry", 1024 * 4, (void* )0, 3, NULL);
+    xTaskCreate(power_watchdog_task, "power_watchdog", 4096, NULL, 3, NULL);
+    xTaskCreate(wifi_telemetry_task, "wifi_telemetry", 4096, NULL, 3, NULL);
+    xTaskCreate(lorawan_telemetry_task, "lorawan_telemetry", 4096, NULL, 3, NULL);
 
     return ESP_OK;
 }

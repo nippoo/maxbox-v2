@@ -10,9 +10,8 @@ extern "C" {
 // User config
 
 #define TAG_CHECK_INTERVAL_MS       	500
-
 #define LORA_TELEMETRY_INTERVAL_MS      480000
-#define WIFI_TELEMETRY_INTERVAL_MS      300000
+#define WIFI_TELEMETRY_INTERVAL_MS      100000
 
 #define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF8
 
@@ -73,13 +72,17 @@ extern "C" {
 #define API_ENDPOINT_TOUCH          CONFIG_MAXBOX_API_ROOT "touch"
 #define API_ENDPOINT_TELEMETRY      CONFIG_MAXBOX_API_ROOT "telemetry"
 
-#define MAX_WIFI_RETRY              3
+#define MAX_WIFI_RETRY              4
 #define MAX_HTTP_RECV_BUFFER        512
 #define MAX_HTTP_OUTPUT_BUFFER      2048
-#define MAX_WIFI_WAIT_MS            5000 // maximum time to wait for wifi connection
+
+// Timeouts
+#define MAX_WIFI_WAIT_MS            6000 // maximum time to wait for wifi connection
+#define MAX_EVENT_TIMEOUT_MS        180000 // emergency timeout for concurrent events
 
 // Misc/enums
-typedef enum {STATE_BOOT, STATE_IDLE_REQ, STATE_IDLE_LOW_POWER, STATE_IDLE_HI_POWER, STATE_TOUCHED, STATE_DENY, STATE_LOCKING, STATE_UNLOCKING, STATE_ERROR, STATE_TELEMETRY_SENDING, STATE_FW_UPDATE} box_state_t;
+#define POWER_WATCHDOG_INTERVAL_MS      30000
+
 typedef enum {EVT_BOOT, EVT_TOUCHED, EVT_TELEMETRY, EVT_FIRMWARE} box_event_t;
 typedef enum {BOX_OK, BOX_LOCKED, BOX_UNLOCKED, BOX_DENY, BOX_ERROR} event_return_t;
 
@@ -116,7 +119,6 @@ struct maxbox {
     int32_t etag;                                       /*<! etag for sequential operator card list update */
     char operator_card_list[MAX_OPERATOR_CARDS][9];     /*<! List of operator card IDs */
     bool lock_desired;                                  /*<! Desired lock status (0: unlocked, 1: locked) */
-    box_state_t mb_state;                               /*<! Current box state */
 };
 
 typedef struct maxbox* maxbox_t;
