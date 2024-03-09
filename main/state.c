@@ -30,8 +30,7 @@ void mb_begin_event(box_event_t box_event)
     EventBits_t bits = 0;
 
     // List of blocking other events - state change not allowed until these events have finished
-    switch(box_event)
-    {
+    switch (box_event) {
     case EVT_TOUCHED:
         ESP_LOGI(TAG, "State change requested: TOUCH");
         bits = (BOOTING_BIT | TOUCHED_BIT | FW_UPDATING_BIT);
@@ -53,14 +52,12 @@ void mb_begin_event(box_event_t box_event)
 
     bits = xEventGroupGetBits(s_box_event_group) & bits;
 
-    if(bits)
-    {
+    if (bits) {
         ESP_LOGI(TAG, "Waiting to process event");
         bits = xEventGroupWaitBits(s_box_event_group, (bits << 1), pdFALSE, pdTRUE, MAX_EVENT_TIMEOUT_MS / portTICK_PERIOD_MS);
     }
 
-    switch(box_event)
-    {
+    switch (box_event) {
     case EVT_TOUCHED:
         xEventGroupClearBits(s_box_event_group, TOUCHED_DONE_BIT);
         xEventGroupSetBits(s_box_event_group, TOUCHED_BIT);
@@ -88,12 +85,10 @@ void mb_begin_event(box_event_t box_event)
 
 void mb_complete_event(box_event_t box_event, event_return_t return_status)
 {
-    switch(box_event)
-    {
+    switch (box_event) {
     case EVT_TOUCHED:
         wifi_disconnect();
-        switch(return_status)
-        {
+        switch (return_status) {
         case BOX_LOCKED:
             led_update(LED_LOCKED);
             vTaskDelay(1500 / portTICK_PERIOD_MS);
@@ -121,12 +116,10 @@ void mb_complete_event(box_event_t box_event, event_return_t return_status)
         xEventGroupSetBits(s_box_event_group, TOUCHED_DONE_BIT);
         break;
     case EVT_TELEMETRY:
-        if (!(xEventGroupGetBits(s_box_event_group) & TOUCHED_BIT))
-        {
+        if (!(xEventGroupGetBits(s_box_event_group) & TOUCHED_BIT)) {
             wifi_disconnect();
         }
-        switch(return_status)
-        {
+        switch (return_status) {
         case BOX_LOCKED:
             led_update(LED_LOCKED);
             vTaskDelay(1500 / portTICK_PERIOD_MS);

@@ -11,7 +11,7 @@
 
 #include "maxbox_defines.h"
 
- #define max(a,b) \
+#define max(a,b) \
    ({ __typeof__ (a) _a = (a); \
        __typeof__ (b) _b = (b); \
      _a > _b ? _a : _b; })
@@ -49,7 +49,7 @@ void led_init(void)
 
     ltr303_init(&ltr303_start_args);
 
-    if(pthread_mutex_init (&led_status_mux, NULL) != 0){
+    if (pthread_mutex_init(&led_status_mux, NULL) != 0) {
         ESP_LOGE(TAG, "Failed to initialize LED mutex");
     }
 
@@ -61,8 +61,7 @@ void led_init(void)
 
 void led_update(led_status_t st)
 {
-    if(pthread_mutex_lock(&led_status_mux) == 0)
-    {
+    if (pthread_mutex_lock(&led_status_mux) == 0) {
         led_status = st;
         led_status_changed = true;
         pthread_mutex_unlock(&led_status_mux);
@@ -70,70 +69,65 @@ void led_update(led_status_t st)
 
     uint16_t lux = ltr303_read_lux();
 
-    if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX)
-    {
+    if (lux < CONFIG_NIGHT_MODE_THRESHOLD_LUX) {
         ESP_LOGI(TAG, "Ambient light: %i lux, night mode", lux);
         // lp50xx_set_global_scale(1.0);
-    }
-    else
-    {
+    } else {
         ESP_LOGI(TAG, "Ambient light: %i lux, full brightness", lux);
         // lp50xx_set_global_scale(1.0);
     }
 }
 
 static void led_swirl(uint16_t interval_ms, uint64_t elapsed_ms,
-    uint8_t red, uint8_t green, uint8_t blue,
-    uint8_t dark_red, uint8_t dark_green, uint8_t dark_blue)
+                      uint8_t red, uint8_t green, uint8_t blue,
+                      uint8_t dark_red, uint8_t dark_green, uint8_t dark_blue)
 {
     uint8_t i, calc_red, calc_green, calc_blue;
-    for (i=0; i<8; i++)
-    {
-        int16_t curr_period = ((elapsed_ms+(i*interval_ms/8))-(interval_ms/4)) % interval_ms - interval_ms/2;
-        float multiplier = ((float)2/interval_ms)*(abs(curr_period));
+    for (i = 0; i < 8; i++) {
+        int16_t curr_period = ((elapsed_ms + (i * interval_ms / 8)) - (interval_ms / 4)) % interval_ms - interval_ms / 2;
+        float multiplier = ((float)2 / interval_ms) * (abs(curr_period));
         multiplier = pow(multiplier, 4);
-        calc_red = red*multiplier;
-        calc_green = green*multiplier;
-        calc_blue = blue*multiplier;
+        calc_red = red * multiplier;
+        calc_green = green * multiplier;
+        calc_blue = blue * multiplier;
 
         lp50xx_set_color_led(i, max(calc_red, dark_red), max(calc_green, dark_green), max(calc_blue, dark_blue));
     }
- }
+}
 
 static void led_breathe(uint16_t period_ms, uint64_t elapsed_ms,
-    uint8_t red, uint8_t green, uint8_t blue) {
+                        uint8_t red, uint8_t green, uint8_t blue)
+{
 
-    int16_t curr_period = (elapsed_ms-(period_ms/4)) % period_ms - period_ms/2;
-    float multiplier = ((float)2/period_ms)*abs(curr_period);
+    int16_t curr_period = (elapsed_ms - (period_ms / 4)) % period_ms - period_ms / 2;
+    float multiplier = ((float)2 / period_ms) * abs(curr_period);
 
-    uint8_t cur_red = (red*multiplier);
-    uint8_t cur_green = (green*multiplier);
-    uint8_t cur_blue = (blue*multiplier);
+    uint8_t cur_red = (red * multiplier);
+    uint8_t cur_green = (green * multiplier);
+    uint8_t cur_blue = (blue * multiplier);
 
     lp50xx_set_color_bank(cur_red, cur_green, cur_blue);
 }
 
 static void led_breathe_2colour(uint16_t period_ms, uint64_t elapsed_ms,
-    uint8_t red0, uint8_t green0, uint8_t blue0,
-    uint8_t red1, uint8_t green1, uint8_t blue1) {
+                                uint8_t red0, uint8_t green0, uint8_t blue0,
+                                uint8_t red1, uint8_t green1, uint8_t blue1)
+{
 
-    int16_t curr_period = (elapsed_ms-(period_ms/4)) % period_ms - period_ms/2;
-    float multiplier = ((float)2/period_ms)*abs(curr_period);
+    int16_t curr_period = (elapsed_ms - (period_ms / 4)) % period_ms - period_ms / 2;
+    float multiplier = ((float)2 / period_ms) * abs(curr_period);
 
-    uint8_t curr_colour = (((elapsed_ms + period_ms/4) % (period_ms * 2)) < (period_ms)) ? 0 : 1;
+    uint8_t curr_colour = (((elapsed_ms + period_ms / 4) % (period_ms * 2)) < (period_ms)) ? 0 : 1;
 
     uint8_t cur_red, cur_blue, cur_green;
-    if (curr_colour == 0)
-    {
-        cur_red = (red0*multiplier);
-        cur_green = (green0*multiplier);
-        cur_blue = (blue0*multiplier);
-    }
-    else
-    {
-        cur_red = (red1*multiplier);
-        cur_green = (green1*multiplier);
-        cur_blue = (blue1*multiplier);
+    if (curr_colour == 0) {
+        cur_red = (red0 * multiplier);
+        cur_green = (green0 * multiplier);
+        cur_blue = (blue0 * multiplier);
+    } else {
+        cur_red = (red1 * multiplier);
+        cur_green = (green1 * multiplier);
+        cur_blue = (blue1 * multiplier);
     }
 
     lp50xx_set_color_bank(cur_red, cur_green, cur_blue);
@@ -143,14 +137,10 @@ void led_task(void *args)
 {
     uint64_t elapsed_ms = 0;
 
-    while (true)
-    {
-        if(led_status_changed) // apply any colour selection, initial setup for new pattern
-        {
-            if(pthread_mutex_lock(&led_status_mux) == 0)
-            {
-                switch(led_status)
-                {
+    while (true) {
+        if (led_status_changed) { // apply any colour selection, initial setup for new pattern
+            if (pthread_mutex_lock(&led_status_mux) == 0) {
+                switch (led_status) {
                 case LED_BOOT:
                     lp50xx_set_global_off(0);
                     lp50xx_set_bank_control(0);
@@ -188,8 +178,7 @@ void led_task(void *args)
             }
         }
 
-        switch(led_status)
-        {
+        switch (led_status) {
         case LED_BOOT:
             led_swirl(1000, elapsed_ms, 0, 255, 255, 0, 0, 10);
             break;
@@ -215,7 +204,7 @@ void led_task(void *args)
             break;
         }
 
-        elapsed_ms+= 20;
+        elapsed_ms += 20;
         vTaskDelay(pdMS_TO_TICKS(20));
     }
 

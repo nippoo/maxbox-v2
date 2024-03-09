@@ -72,5 +72,5 @@ void app_main(void)
     flash_init();
     sim7600_init();
     wifi_init();
-    xTaskCreatePinnedToCore(core1init, "core1init", 1024 * 4, (void* )0, 3, NULL, 1);
+    xTaskCreatePinnedToCore(core1init, "core1init", 1024 * 4, (void*)0, 3, NULL, 1);
 }

@@ -45,7 +45,7 @@ static void config_gpio()
 
 static void power_on_modem(esp_modem_dce_t *dce)
 {
-     // Power on the modem 
+    // Power on the modem
     ESP_LOGI(TAG, "Sending SIM7600 power-on pulse");
     gpio_set_level(SIM_PWRKEY_PIN, 1);
     vTaskDelay(500 / portTICK_PERIOD_MS);
@@ -55,10 +55,8 @@ static void power_on_modem(esp_modem_dce_t *dce)
 static void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
 {
     ESP_LOGI(TAG, "Waiting for SIM7600 to boot for up to %is...", count);
-    for (int i = 0; i < count; i++)
-    {
-        if(esp_modem_sync(dce) == ESP_OK)
-        {
+    for (int i = 0; i < count; i++) {
+        if (esp_modem_sync(dce) == ESP_OK) {
             ESP_LOGI(TAG, "SIM7600 UART OK");
             return;
         }
@@ -88,41 +86,65 @@ static void gnss_stop()
 
 static float nmea_to_decimal(const char *lat_long)
 {
-  char deg[4] = {0};
-  char *dot, *min;
-  int len;
-  float dec = 0;
+    char deg[4] = {0};
+    char *dot, *min;
+    int len;
+    float dec = 0;
 
-  if ((dot = strchr(lat_long, '.')))
-  {                                         // decimal point was found
-    min = dot - 2;                          // mark the start of minutes 2 chars back
-    len = min - lat_long;                   // find the length of degrees
-    strncpy(deg, lat_long, len);            // copy the degree string to allow conversion to float
-    dec = atof(deg) + atof(min) / 60;       // convert to float
-  }
-  return dec;
+    if ((dot = strchr(lat_long, '.'))) {
+        // decimal point was found
+        min = dot - 2;                          // mark the start of minutes 2 chars back
+        len = min - lat_long;                   // find the length of degrees
+        strncpy(deg, lat_long, len);            // copy the degree string to allow conversion to float
+        dec = atof(deg) + atof(min) / 60;       // convert to float
+    }
+    return dec;
 }
 
 static void process_gngns_string(char *buf)
 {
     // Example string: $GNGNS,223254.00,5156.126739,N,00629.13328,W,AAA,10,1.0,18.9,46.0,,,V*49
     char *p;
-    if (!(p = strstr(buf, "$GNGNS"))) return;
-    if (!(p = strchr(p, ','))) return;
-    if (!(p = strchr(++p, ','))) return; // jump over UTC time
+    if (!(p = strstr(buf, "$GNGNS"))) {
+        return;
+    }
+    if (!(p = strchr(p, ','))) {
+        return;
+    }
+    if (!(p = strchr(++p, ','))) {
+        return;    // jump over UTC time
+    }
     mb->tel->gnss_latitude = nmea_to_decimal(++p);
-    if (!(p = strchr(p, ','))) return;
-    if (*(++p) == 'S') mb->tel->gnss_latitude = -mb->tel->gnss_latitude;
-    if (!(p = strchr(p, ','))) return;
+    if (!(p = strchr(p, ','))) {
+        return;
+    }
+    if (*(++p) == 'S') {
+        mb->tel->gnss_latitude = -mb->tel->gnss_latitude;
+    }
+    if (!(p = strchr(p, ','))) {
+        return;
+    }
     mb->tel->gnss_longitude = nmea_to_decimal(++p);
-    if (!(p = strchr(p, ','))) return;
-    if (*(++p) == 'W') mb->tel->gnss_longitude = -mb->tel->gnss_longitude;
-    if (!(p = strchr(p, ','))) return; // jump over mode indicator
-    if (!(p = strchr(++p, ','))) return;
+    if (!(p = strchr(p, ','))) {
+        return;
+    }
+    if (*(++p) == 'W') {
+        mb->tel->gnss_longitude = -mb->tel->gnss_longitude;
+    }
+    if (!(p = strchr(p, ','))) {
+        return;    // jump over mode indicator
+    }
+    if (!(p = strchr(++p, ','))) {
+        return;
+    }
     mb->tel->gnss_nosats = atoi(++p);
-    if (!(p = strchr(p, ','))) return;
-    mb->tel->gnss_hdop = atof(++p) * 3.0; //    HACK: HDoP isn't the same as horizontal precision, but for this
-                                          //    application we multiply by 3 to get a rough horizontal range
+    if (!(p = strchr(p, ','))) {
+        return;
+    }
+
+    //    HACK: HDoP isn't the same as horizontal precision, but for this
+    //    application we multiply by 3 to get a rough horizontal range
+    mb->tel->gnss_hdop = atof(++p) * 3.0;
 
     mb->tel->gnss_updated_ts = box_timestamp();
 }
@@ -176,7 +198,7 @@ esp_err_t sim7600_init()
     dce = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
     assert(dce);
 
-    // Power on the modem 
+    // Power on the modem
     config_gpio();
     power_on_modem(dce);
 

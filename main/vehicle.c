@@ -23,38 +23,42 @@ void can_receive_task(void *arg)
     while (1) {
         twai_message_t msg;
         twai_receive(&msg, portMAX_DELAY);
-        if (msg.identifier == 0x5c5)
-        {
+        if (msg.identifier == 0x5c5) {
             mb->tel->odometer_miles = (msg.data[1] << 16) | (msg.data[2] << 8) | (msg.data[3]);
             mb->tel->odometer_updated_ts = box_timestamp();
-        }
-        else if (msg.identifier == 0x55b)
-        {
+        } else if (msg.identifier == 0x55b) {
             mb->tel->soc_percent = ((msg.data[0] << 2) | (msg.data[1] >> 6)) / 10;
             mb->tel->soc_updated_ts = box_timestamp();
-        }
-        else if (msg.identifier == 0x60d)
-        {
-            if (msg.data[2] == 0x18)
-            {
+        } else if (msg.identifier == 0x60d) {
+            if (msg.data[2] == 0x18) {
                 mb->tel->doors_locked = 1;
-            }
-            else
-            {
+            } else {
                 mb->tel->doors_locked = 0;
             }
             mb->tel->doors_updated_ts = box_timestamp();
-        }
-        else if (msg.identifier == 0x385)
-        {
-            if (msg.data[2]) {mb->tel->tyre_pressure_fr = (msg.data[2] / 4);} else {mb->tel->tyre_pressure_fr = 63;}
-            if (msg.data[3]) {mb->tel->tyre_pressure_fl = (msg.data[3] / 4);} else {mb->tel->tyre_pressure_fl = 63;}
-            if (msg.data[4]) {mb->tel->tyre_pressure_rr = (msg.data[4] / 4);} else {mb->tel->tyre_pressure_rr = 63;}
-            if (msg.data[5]) {mb->tel->tyre_pressure_rl = (msg.data[5] / 4);} else {mb->tel->tyre_pressure_rl = 63;}
+        } else if (msg.identifier == 0x385) {
+            if (msg.data[2]) {
+                mb->tel->tyre_pressure_fr = (msg.data[2] / 4);
+            } else {
+                mb->tel->tyre_pressure_fr = 63;
+            }
+            if (msg.data[3]) {
+                mb->tel->tyre_pressure_fl = (msg.data[3] / 4);
+            } else {
+                mb->tel->tyre_pressure_fl = 63;
+            }
+            if (msg.data[4]) {
+                mb->tel->tyre_pressure_rr = (msg.data[4] / 4);
+            } else {
+                mb->tel->tyre_pressure_rr = 63;
+            }
+            if (msg.data[5]) {
+                mb->tel->tyre_pressure_rl = (msg.data[5] / 4);
+            } else {
+                mb->tel->tyre_pressure_rl = 63;
+            }
             mb->tel->tp_updated_ts = box_timestamp();
-        }
-        else if (msg.identifier == 0x5b3)
-        {
+        } else if (msg.identifier == 0x5b3) {
             mb->tel->soh_percent = (msg.data[1] >> 1);
             mb->tel->soh_updated_ts = box_timestamp();
         }
@@ -69,13 +73,12 @@ static void send_can(twai_message_t message)
 
 static void un_lock()
 {
-    if (xEventGroupGetBits(s_can_event_group) & CAN_SENDING_BIT)
-    {
+    if (xEventGroupGetBits(s_can_event_group) & CAN_SENDING_BIT) {
         xEventGroupWaitBits(s_can_event_group,
-            CAN_SENDING_DONE_BIT,
-            pdTRUE,
-            pdFALSE,
-            20000/portTICK_PERIOD_MS);
+                            CAN_SENDING_DONE_BIT,
+                            pdTRUE,
+                            pdFALSE,
+                            20000 / portTICK_PERIOD_MS);
     }
 
     xEventGroupSetBits(s_can_event_group, CAN_SENDING_BIT);
@@ -119,8 +122,7 @@ static void un_lock()
     packetlock.data[6] = 0xff;
     packetlock.data[7] = 0xff;
 
-    if(mb->lock_desired)
-    {
+    if (mb->lock_desired) {
         ESP_LOGI(TAG, "Transmitting lock CAN packet");
         packetlock.data[4] = 0x01;
     } else {
@@ -168,7 +170,7 @@ static void un_lock()
 
 void vehicle_init()
 {
-    // TODO: Sleep CAN transmitter until required (to save power) 
+    // TODO: Sleep CAN transmitter until required (to save power)
     // For the moment we just leave it awake all the time
     gpio_set_direction(CAN_SLEEP_PIN, GPIO_MODE_OUTPUT);
     gpio_set_level(CAN_SLEEP_PIN, 0);
@@ -193,13 +195,12 @@ event_return_t vehicle_un_lock()
     xTaskCreate(&un_lock, "un_lock", 8192, NULL, 6, NULL);
 
     xEventGroupWaitBits(s_can_event_group,
-        CAN_SENDING_DONE_BIT,
-        pdTRUE,
-        pdFALSE,
-        20000/portTICK_PERIOD_MS);
+                        CAN_SENDING_DONE_BIT,
+                        pdTRUE,
+                        pdFALSE,
+                        20000 / portTICK_PERIOD_MS);
 
-    if(mb->lock_desired)
-    {
+    if (mb->lock_desired) {
         return BOX_LOCKED;
     } else {
         return BOX_UNLOCKED;

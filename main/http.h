@@ -10,7 +10,7 @@ extern "C" {
 
 typedef void(*rest_callback_t)(char*);
 
-struct rest_request{
+struct rest_request {
     char *url;                   /*<! URL to POST to */
     char data[1023];             /*<! JSON data to send */
     rest_callback_t callback;    /*<! callback function */

@@ -40,7 +40,7 @@ void lorawan_init_task(void* arg)
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
         .intr_flags = ESP_INTR_FLAG_LOWMED,
-    }; 
+    };
     spi_bus_initialize(LORA_SPI_HOST_ID, &spi_bus_config, LORA_SPI_DMA_CHAN);
 
     // Initialize TTN
@@ -57,19 +57,15 @@ void lorawan_init_task(void* arg)
     ttn_set_max_tx_pow(14);
 
     ESP_LOGI(TAG, "Joining");
-    while (!mb->lorawan_joined)
-    {
-        if (ttn_join_with_keys(deveui_string, "0000000000000000", CONFIG_LORAWAN_APPKEY))
-        {
+    while (!mb->lorawan_joined) {
+        if (ttn_join_with_keys(deveui_string, "0000000000000000", CONFIG_LORAWAN_APPKEY)) {
             ESP_LOGI(TAG, "Joined");
 
             ttn_set_adr_enabled(false);
             ttn_set_data_rate(CONFIG_LORAWAN_DATARATE);
             ttn_set_max_tx_pow(14);
             mb->lorawan_joined = true;
-        }
-        else
-        {
+        } else {
             ESP_LOGE(TAG, "Join failed. Waiting to retry");
         }
         vTaskDelay(LORA_JOIN_RETRY_INTERVAL_MS / portTICK_PERIOD_MS);

@@ -33,74 +33,74 @@ esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
     static char *output_buffer;  // Buffer to store response of http request from event handler
     static int output_len;       // Stores number of bytes read
-    switch(evt->event_id) {
-        case HTTP_EVENT_ERROR:
-            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
-            break;
-        case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
-            break;
-        case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
-            break;
-        case HTTP_EVENT_ON_HEADER:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
-            break;
-        case HTTP_EVENT_ON_DATA:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            /*
-             *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
-             *  However, event handler can also be used in case chunked encoding is used.
-             */
-            if (!esp_http_client_is_chunked_response(evt->client)) {
-                // If user_data buffer is configured, copy the response into the buffer
-                if (evt->user_data) {
-                    memcpy(evt->user_data + output_len, evt->data, evt->data_len);
-                } else {
+    switch (evt->event_id) {
+    case HTTP_EVENT_ERROR:
+        ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+        break;
+    case HTTP_EVENT_ON_CONNECTED:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+        break;
+    case HTTP_EVENT_HEADER_SENT:
+        ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+        break;
+    case HTTP_EVENT_ON_HEADER:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+        break;
+    case HTTP_EVENT_ON_DATA:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+        /*
+         *  Check for chunked encoding is added as the URL for chunked encoding used in this example returns binary data.
+         *  However, event handler can also be used in case chunked encoding is used.
+         */
+        if (!esp_http_client_is_chunked_response(evt->client)) {
+            // If user_data buffer is configured, copy the response into the buffer
+            if (evt->user_data) {
+                memcpy(evt->user_data + output_len, evt->data, evt->data_len);
+            } else {
+                if (output_buffer == NULL) {
+                    output_buffer = (char *) malloc(esp_http_client_get_content_length(evt->client));
+                    output_len = 0;
                     if (output_buffer == NULL) {
-                        output_buffer = (char *) malloc(esp_http_client_get_content_length(evt->client));
-                        output_len = 0;
-                        if (output_buffer == NULL) {
-                            ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
-                            return ESP_FAIL;
-                        }
+                        ESP_LOGE(TAG, "Failed to allocate memory for output buffer");
+                        return ESP_FAIL;
                     }
-                    memcpy(output_buffer + output_len, evt->data, evt->data_len);
                 }
-                output_len += evt->data_len;
+                memcpy(output_buffer + output_len, evt->data, evt->data_len);
             }
+            output_len += evt->data_len;
+        }
 
-            break;
-        case HTTP_EVENT_ON_FINISH:
-            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
-            if (output_buffer != NULL) {
-                // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
-                // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
-                free(output_buffer);
-                output_buffer = NULL;
-            }
-            output_len = 0;
-            break;
-        case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
-            int mbedtls_err = 0;
-            esp_err_t err = esp_tls_get_and_clear_last_error(evt->data, &mbedtls_err, NULL);
-            if (err != 0) {
-                ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
-                ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
-            }
-            if (output_buffer != NULL) {
-                free(output_buffer);
-                output_buffer = NULL;
-            }
-            output_len = 0;
-            break;
-        case HTTP_EVENT_REDIRECT:
-            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
-            esp_http_client_set_header(evt->client, "From", "user@example.com");
-            esp_http_client_set_header(evt->client, "Accept", "text/html");
-            esp_http_client_set_redirection(evt->client);
-            break;
+        break;
+    case HTTP_EVENT_ON_FINISH:
+        ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+        if (output_buffer != NULL) {
+            // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
+            // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
+            free(output_buffer);
+            output_buffer = NULL;
+        }
+        output_len = 0;
+        break;
+    case HTTP_EVENT_DISCONNECTED:
+        ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+        int mbedtls_err = 0;
+        esp_err_t err = esp_tls_get_and_clear_last_error(evt->data, &mbedtls_err, NULL);
+        if (err != 0) {
+            ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
+            ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
+        }
+        if (output_buffer != NULL) {
+            free(output_buffer);
+            output_buffer = NULL;
+        }
+        output_len = 0;
+        break;
+    case HTTP_EVENT_REDIRECT:
+        ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
+        esp_http_client_set_header(evt->client, "From", "user@example.com");
+        esp_http_client_set_header(evt->client, "Accept", "text/html");
+        esp_http_client_set_redirection(evt->client);
+        break;
     }
     return ESP_OK;
 }
@@ -111,11 +111,11 @@ static esp_err_t _http_set_headers(esp_http_client_handle_t http_client)
     char rendered_etag[10];
 
     sprintf(mac_addr_string, "%02x%02x%02x%02x%02x%02x",    mb->base_mac[0],
-                                                            mb->base_mac[1],
-                                                            mb->base_mac[2],
-                                                            mb->base_mac[3],
-                                                            mb->base_mac[4],
-                                                            mb->base_mac[5]);
+            mb->base_mac[1],
+            mb->base_mac[2],
+            mb->base_mac[3],
+            mb->base_mac[4],
+            mb->base_mac[5]);
     sprintf(rendered_etag, "%d", mb->etag);
 
     esp_http_client_set_header(http_client, "Accept", "application/json");
@@ -124,7 +124,7 @@ static esp_err_t _http_set_headers(esp_http_client_handle_t http_client)
     esp_http_client_set_header(http_client, "X-Carshare-Box-Secret", API_SECRET);
     esp_http_client_set_header(http_client, "X-Carshare-Operator-Card-List-ETag", rendered_etag);
     esp_http_client_set_header(http_client, "X-Carshare-Firmware-Version", FW_VERSION);
-    
+
     return ESP_OK;
 }
 
@@ -134,31 +134,26 @@ event_return_t json_return_handler(char* result)
 
     cJSON *result_json = cJSON_Parse(result);
 
-    if(cJSON_GetObjectItem(result_json, "operator_card_list"))
-    {
+    if (cJSON_GetObjectItem(result_json, "operator_card_list")) {
         cJSON *card_list = cJSON_GetObjectItem(result_json, "operator_card_list");
         cJSON *recv_etag = cJSON_GetObjectItem(card_list, "etag");
 
-        if (cJSON_IsNumber(recv_etag))
-        {
-            if (recv_etag->valuedouble != mb->etag)
-            {
+        if (cJSON_IsNumber(recv_etag)) {
+            if (recv_etag->valuedouble != mb->etag) {
                 ESP_LOGI(TAG, "New etag is %d", recv_etag->valueint);
 
                 cJSON *card;
                 cJSON *op_cards = cJSON_GetObjectItem(card_list, "cards");
 
                 int i = 0;
-                cJSON_ArrayForEach(card, op_cards)
-                {
+                cJSON_ArrayForEach(card, op_cards) {
                     char *cardid = card->valuestring;
                     ESP_LOGI(TAG, "Added card to operator list with id: %s", cardid);
                     strncpy(mb->operator_card_list[i], cardid, 9);
                     i++;
                 }
 
-                for (; i<MAX_OPERATOR_CARDS; i++)
-                {
+                for (; i < MAX_OPERATOR_CARDS; i++) {
                     strcpy(mb->operator_card_list[i], "voidvoid");
                 }
 
@@ -170,21 +165,15 @@ event_return_t json_return_handler(char* result)
     }
 
     // Optionally, there may be an action to manually lock or unlock the car remotely
-    if(cJSON_GetObjectItem(result_json, "action"))
-    {
+    if (cJSON_GetObjectItem(result_json, "action")) {
         char *action = cJSON_GetObjectItem(result_json, "action")->valuestring;
-        if (strcmp(action, "lock") == 0)
-        {
+        if (strcmp(action, "lock") == 0) {
             mb->lock_desired = 1;
             status = vehicle_un_lock();
-        }
-        else if (strcmp(action, "unlock") == 0)
-        {
+        } else if (strcmp(action, "unlock") == 0) {
             mb->lock_desired = 0;
             status = vehicle_un_lock();
-        }
-        else if (strcmp(action, "reject") == 0)
-        {
+        } else if (strcmp(action, "reject") == 0) {
             status = BOX_DENY;
         }
     }
@@ -217,12 +206,9 @@ static void http_auth_rfid(void *rest_request)
         .crt_bundle_attach = esp_crt_bundle_attach,
     };
 
-    if(request->box_event == EVT_TOUCHED)
-    {
+    if (request->box_event == EVT_TOUCHED) {
         config.url = API_ENDPOINT_TOUCH;
-    }
-    else
-    {
+    } else {
         config.url = API_ENDPOINT_TELEMETRY;
     }
 
@@ -239,8 +225,8 @@ static void http_auth_rfid(void *rest_request)
 
     if (err == ESP_OK) {
         ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %d",
-                esp_http_client_get_status_code(client),
-                esp_http_client_get_content_length(client));
+                 esp_http_client_get_status_code(client),
+                 esp_http_client_get_content_length(client));
 
         ESP_LOGI(TAG, "Got data: %s", local_response_buffer);
 
@@ -264,8 +250,7 @@ void http_send(char* card_id)
 
     json_format_telemetry(req->data, card_id);
 
-    if(card_id)
-    {
+    if (card_id) {
         req->box_event = EVT_TOUCHED;
     } else {
         req->box_event = EVT_TELEMETRY;

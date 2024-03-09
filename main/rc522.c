@@ -28,17 +28,19 @@ static rc522_handle_t hndl = NULL;
 
 #define rc522_fw_version() rc522_read(0x37)
 
-bool rc522_is_inited() {
+bool rc522_is_inited()
+{
     return hndl != NULL;
 }
 
-static esp_err_t rc522_spi_init() {
-    if(! hndl || ! hndl->config) {
+static esp_err_t rc522_spi_init()
+{
+    if (! hndl || ! hndl->config) {
         ESP_LOGE(TAG, "Fail to init SPI. Invalid handle");
         return ESP_ERR_INVALID_STATE;
     }
 
-    if(hndl->spi) {
+    if (hndl->spi) {
         ESP_LOGW(TAG, "SPI already initialized");
         return ESP_ERR_INVALID_STATE;
     }
@@ -63,13 +65,13 @@ static esp_err_t rc522_spi_init() {
 
     esp_err_t err = spi_bus_initialize(hndl->config->spi_host_id, &buscfg, 0);
 
-    if(err != ESP_OK) {
+    if (err != ESP_OK) {
         return err;
     }
 
     err = spi_bus_add_device(hndl->config->spi_host_id, &devcfg, &hndl->spi);
 
-    if(err != ESP_OK) {
+    if (err != ESP_OK) {
         spi_bus_free(hndl->config->spi_host_id);
         hndl->spi = NULL;
     }
@@ -77,7 +79,8 @@ static esp_err_t rc522_spi_init() {
     return err;
 }
 
-static esp_err_t rc522_write_n(uint8_t addr, uint8_t n, uint8_t *data) {
+static esp_err_t rc522_write_n(uint8_t addr, uint8_t n, uint8_t *data)
+{
     uint8_t* buffer = (uint8_t*) malloc(n);
 
     for (uint8_t i = 0; i < n; i++) {
@@ -98,11 +101,13 @@ static esp_err_t rc522_write_n(uint8_t addr, uint8_t n, uint8_t *data) {
     return ret;
 }
 
-static esp_err_t rc522_write(uint8_t addr, uint8_t val) {
+static esp_err_t rc522_write(uint8_t addr, uint8_t val)
+{
     return rc522_write_n(addr, 1, &val);
 }
 
-static uint8_t* rc522_read_n(uint8_t addr, uint8_t n) {
+static uint8_t* rc522_read_n(uint8_t addr, uint8_t n)
+{
     if (n <= 0) {
         return NULL;
     }
@@ -111,7 +116,7 @@ static uint8_t* rc522_read_n(uint8_t addr, uint8_t n) {
     memset(&t, 0, sizeof(t));
 
     uint8_t* buffer = (uint8_t*) malloc(n);
-    
+
     t.length = 0;
     t.addr = ((addr << 1) & 0x7E) | 0x80;
     t.rxlength = 8 * n;
@@ -123,7 +128,8 @@ static uint8_t* rc522_read_n(uint8_t addr, uint8_t n) {
     return buffer;
 }
 
-static uint8_t rc522_read(uint8_t addr) {
+static uint8_t rc522_read(uint8_t addr)
+{
     uint8_t* buffer = rc522_read_n(addr, 1);
     uint8_t res = buffer[0];
     free(buffer);
@@ -131,42 +137,46 @@ static uint8_t rc522_read(uint8_t addr) {
     return res;
 }
 
-static esp_err_t rc522_set_bitmask(uint8_t addr, uint8_t mask) {
+static esp_err_t rc522_set_bitmask(uint8_t addr, uint8_t mask)
+{
     return rc522_write(addr, rc522_read(addr) | mask);
 }
 
-static esp_err_t rc522_clear_bitmask(uint8_t addr, uint8_t mask) {
+static esp_err_t rc522_clear_bitmask(uint8_t addr, uint8_t mask)
+{
     return rc522_write(addr, rc522_read(addr) & ~mask);
 }
 
-static esp_err_t rc522_antenna_on() {
+static esp_err_t rc522_antenna_on()
+{
     esp_err_t ret;
 
-    if(~ (rc522_read(0x14) & 0x03)) {
+    if (~(rc522_read(0x14) & 0x03)) {
         ret = rc522_set_bitmask(0x14, 0x03);
 
-        if(ret != ESP_OK) {
+        if (ret != ESP_OK) {
             return ret;
         }
     }
 
     return rc522_write(0x26, 0x60); // 43dB gain
 }
-esp_err_t rc522_init(const rc522_config_t* config) {
-    if(! config) {
+esp_err_t rc522_init(const rc522_config_t* config)
+{
+    if (! config) {
         return ESP_ERR_INVALID_ARG;
     }
 
-    if(hndl) {
+    if (hndl) {
         ESP_LOGW(TAG, "Already initialized");
         return ESP_ERR_INVALID_STATE;
     }
 
-    if(! (hndl = calloc(1, sizeof(struct rc522)))) {
+    if (!(hndl = calloc(1, sizeof(struct rc522)))) {
         return ESP_ERR_NO_MEM;
     }
 
-    if(! (hndl->config = calloc(1, sizeof(rc522_config_t)))) {
+    if (!(hndl->config = calloc(1, sizeof(rc522_config_t)))) {
         rc522_destroy();
         return ESP_ERR_NO_MEM;
     }
@@ -180,15 +190,15 @@ esp_err_t rc522_init(const rc522_config_t* config) {
 
     esp_err_t err = rc522_spi_init();
 
-    if(err != ESP_OK) {
+    if (err != ESP_OK) {
         rc522_destroy();
         return err;
     }
-    
+
     // ---------- RW test ------------
     const uint8_t test_addr = 0x24, test_val = 0x25;
-    for(uint8_t i = test_val; i < test_val + 2; i++) {
-        if((err = rc522_write(test_addr, i)) != ESP_OK || rc522_read(test_addr) != i) {
+    for (uint8_t i = test_val; i < test_val + 2; i++) {
+        if ((err = rc522_write(test_addr, i)) != ESP_OK || rc522_read(test_addr) != i) {
             ESP_LOGE(TAG, "RW test fail");
             rc522_destroy();
             return err;
@@ -210,13 +220,14 @@ esp_err_t rc522_init(const rc522_config_t* config) {
     return ESP_OK;
 }
 
-uint64_t rc522_sn_to_u64(uint8_t* sn) {
-    if(!sn) {
+uint64_t rc522_sn_to_u64(uint8_t* sn)
+{
+    if (!sn) {
         return 0;
     }
 
     uint64_t result = 0;
-    for(int i = 4; i >= 0; i--) {
+    for (int i = 4; i >= 0; i--) {
         result |= ((uint64_t) sn[i] << (i * 8));
     }
 
@@ -224,7 +235,8 @@ uint64_t rc522_sn_to_u64(uint8_t* sn) {
 }
 
 /* Returns pointer to dynamically allocated array of two element */
-static uint8_t* rc522_calculate_crc(uint8_t *data, uint8_t n) {
+static uint8_t* rc522_calculate_crc(uint8_t *data, uint8_t n)
+{
     rc522_clear_bitmask(0x05, 0x04);
     rc522_set_bitmask(0x0A, 0x80);
 
@@ -235,35 +247,35 @@ static uint8_t* rc522_calculate_crc(uint8_t *data, uint8_t n) {
     uint8_t i = 255;
     uint8_t nn = 0;
 
-    for(;;) {
+    for (;;) {
         nn = rc522_read(0x05);
         i--;
 
-        if(! (i != 0 && ! (nn & 0x04))) {
+        if (!(i != 0 && !(nn & 0x04))) {
             break;
         }
     }
 
-    uint8_t* res = (uint8_t*) malloc(2); 
-    
+    uint8_t* res = (uint8_t*) malloc(2);
+
     res[0] = rc522_read(0x22);
     res[1] = rc522_read(0x21);
 
     return res;
 }
 
-static uint8_t* rc522_card_write(uint8_t cmd, uint8_t *data, uint8_t n, uint8_t* res_n) {
+static uint8_t* rc522_card_write(uint8_t cmd, uint8_t *data, uint8_t n, uint8_t* res_n)
+{
     uint8_t *result = NULL;
     uint8_t irq = 0x00;
     uint8_t irq_wait = 0x00;
     uint8_t last_bits = 0;
     uint8_t nn = 0;
-    
-    if(cmd == 0x0E) {
+
+    if (cmd == 0x0E) {
         irq = 0x12;
         irq_wait = 0x10;
-    }
-    else if(cmd == 0x0C) {
+    } else if (cmd == 0x0C) {
         irq = 0x77;
         irq_wait = 0x30;
     }
@@ -277,26 +289,26 @@ static uint8_t* rc522_card_write(uint8_t cmd, uint8_t *data, uint8_t n, uint8_t*
 
     rc522_write(0x01, cmd);
 
-    if(cmd == 0x0C) {
+    if (cmd == 0x0C) {
         rc522_set_bitmask(0x0D, 0x80);
     }
 
     uint16_t i = 1000;
 
-    for(;;) {
+    for (;;) {
         nn = rc522_read(0x04);
         i--;
 
-        if(! (i != 0 && (((nn & 0x01) == 0) && ((nn & irq_wait) == 0)))) {
+        if (!(i != 0 && (((nn & 0x01) == 0) && ((nn & irq_wait) == 0)))) {
             break;
         }
     }
 
     rc522_clear_bitmask(0x0D, 0x80);
 
-    if(i != 0) {
-        if((rc522_read(0x06) & 0x1B) == 0x00) {
-            if(cmd == 0x0C) {
+    if (i != 0) {
+        if ((rc522_read(0x06) & 0x1B) == 0x00) {
+            if (cmd == 0x0C) {
                 nn = rc522_read(0x0A);
                 last_bits = rc522_read(0x0C) & 0x07;
 
@@ -308,7 +320,7 @@ static uint8_t* rc522_card_write(uint8_t cmd, uint8_t *data, uint8_t n, uint8_t*
 
                 result = (uint8_t*) malloc(*res_n);
 
-                for(i = 0; i < *res_n; i++) {
+                for (i = 0; i < *res_n; i++) {
                     result[i] = rc522_read(0x09);
                 }
             }
@@ -318,14 +330,15 @@ static uint8_t* rc522_card_write(uint8_t cmd, uint8_t *data, uint8_t n, uint8_t*
     return result;
 }
 
-static uint8_t* rc522_request(uint8_t* res_n) {
+static uint8_t* rc522_request(uint8_t* res_n)
+{
     uint8_t* result = NULL;
     rc522_write(0x0D, 0x07);
 
     uint8_t req_mode = 0x26;
     result = rc522_card_write(0x0C, &req_mode, 1, res_n);
 
-    if(*res_n * 8 != 0x10) {
+    if (*res_n * 8 != 0x10) {
         free(result);
         return NULL;
     }
@@ -333,13 +346,16 @@ static uint8_t* rc522_request(uint8_t* res_n) {
     return result;
 }
 
-static uint8_t* rc522_anticoll() {
+static uint8_t* rc522_anticoll()
+{
     uint8_t res_n;
 
     rc522_write(0x0D, 0x00);
-    uint8_t* result = rc522_card_write(0x0C, (uint8_t[]) { 0x93, 0x20 }, 2, &res_n);
+    uint8_t* result = rc522_card_write(0x0C, (uint8_t[]) {
+        0x93, 0x20
+    }, 2, &res_n);
 
-    if(result && res_n != 5) { // all cards/tags serial numbers is 5 bytes long (?)
+    if (result && res_n != 5) { // all cards/tags serial numbers is 5 bytes long (?)
         free(result);
         return NULL;
     }
@@ -347,19 +363,20 @@ static uint8_t* rc522_anticoll() {
     return result;
 }
 
-uint8_t* rc522_get_tag() {
+uint8_t* rc522_get_tag()
+{
     uint8_t* result = NULL;
     uint8_t* res_data = NULL;
     uint8_t res_data_n;
 
     res_data = rc522_request(&res_data_n);
 
-    if(res_data != NULL) {
+    if (res_data != NULL) {
         free(res_data);
 
         result = rc522_anticoll();
 
-        if(result != NULL) {
+        if (result != NULL) {
             uint8_t buf[] = { 0x50, 0x00, 0x00, 0x00 };
             uint8_t* crc = rc522_calculate_crc(buf, 2);
 
@@ -380,10 +397,13 @@ uint8_t* rc522_get_tag() {
     return NULL;
 }
 
-void rc522_destroy() {
-    if(! hndl) { return; }
+void rc522_destroy()
+{
+    if (! hndl) {
+        return;
+    }
 
-    if(hndl->spi) {
+    if (hndl->spi) {
         spi_bus_remove_device(hndl->spi);
         spi_bus_free(hndl->config->spi_host_id);
         hndl->spi = NULL;

@@ -64,8 +64,7 @@ struct owb_driver;
 /**
  * @brief Structure containing 1-Wire bus information relevant to a single instance.
  */
-typedef struct
-{
+typedef struct {
     const struct _OneWireBus_Timing * timing;   ///< Pointer to timing information
     bool use_crc;                               ///< True if CRC checks are to be used when retrieving information from a device on the bus
     bool use_parasitic_power;                   ///< True if parasitic-powered devices are expected on the bus
@@ -78,11 +77,9 @@ typedef struct
  *        the first byte is the family number, then the following 6 bytes form the
  *        serial number. The final byte is the CRC8 check byte.
  */
-typedef union
-{
+typedef union {
     /// Provides access via field names
-    struct fields
-    {
+    struct fields {
         uint8_t family[1];         ///< family identifier (1 byte, LSB - read/write first)
         uint8_t serial_number[6];  ///< serial number (6 bytes)
         uint8_t crc[1];            ///< CRC check byte (1 byte, MSB - read/write last)
@@ -98,8 +95,7 @@ typedef union
  *        Pass a pointer to this structure to owb_search_first() and
  *        owb_search_next() to iterate through detected devices on the bus.
  */
-typedef struct
-{
+typedef struct {
     OneWireBus_ROMCode rom_code;   ///< Device ROM code
     int last_discrepancy;          ///< Bit index that identifies from which bit the next search discrepancy check should start
     int last_family_discrepancy;   ///< Bit index that identifies the last discrepancy within the first 8-bit family code of the ROM code
@@ -109,8 +105,7 @@ typedef struct
 /**
  * @brief Represents the result of OWB API functions.
  */
-typedef enum
-{
+typedef enum {
     OWB_STATUS_NOT_SET = -1,           ///< A status value has not been set
     OWB_STATUS_OK = 0,                 ///< Operation succeeded
     OWB_STATUS_NOT_INITIALIZED,        ///< Function was passed an uninitialised variable
@@ -122,22 +117,21 @@ typedef enum
 } owb_status;
 
 /** NOTE: Driver assumes that (*init) was called prior to any other methods */
-struct owb_driver
-{
+struct owb_driver {
     /** Driver identification **/
     const char* name;
 
     /** Pointer to driver uninitialization function **/
-    owb_status (*uninitialize)(const OneWireBus * bus);
+    owb_status(*uninitialize)(const OneWireBus * bus);
 
     /** Pointer to driver reset functio **/
-    owb_status (*reset)(const OneWireBus * bus, bool *is_present);
+    owb_status(*reset)(const OneWireBus * bus, bool *is_present);
 
     /** NOTE: The data is shifted out of the low bits, eg. it is written in the order of lsb to msb */
-    owb_status (*write_bits)(const OneWireBus *bus, uint8_t out, int number_of_bits_to_write);
+    owb_status(*write_bits)(const OneWireBus *bus, uint8_t out, int number_of_bits_to_write);
 
     /** NOTE: Data is read into the high bits, eg. each bit read is shifted down before the next bit is read */
-    owb_status (*read_bits)(const OneWireBus *bus, uint8_t *in, int number_of_bits_to_read);
+    owb_status(*read_bits)(const OneWireBus *bus, uint8_t *in, int number_of_bits_to_read);
 };
 
 /// @cond ignore

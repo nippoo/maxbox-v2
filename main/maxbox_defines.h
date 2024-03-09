@@ -9,7 +9,7 @@ extern "C" {
 
 // User config
 
-#define TAG_CHECK_INTERVAL_MS       	500
+#define TAG_CHECK_INTERVAL_MS           500
 #define LORA_TELEMETRY_INTERVAL_MS      48000
 #define WIFI_TELEMETRY_INTERVAL_MS      100000
 
@@ -17,7 +17,7 @@ extern "C" {
 
 #define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
 
-#define MAX_OPERATOR_CARDS          	32
+#define MAX_OPERATOR_CARDS              32
 
 // GPIO
 
@@ -92,7 +92,7 @@ typedef enum {BOX_OK, BOX_LOCKED, BOX_UNLOCKED, BOX_DENY, BOX_ERROR} event_retur
 // Shared data structs
 
 typedef struct {
-	int8_t doors_locked;                   /*<! 1 = doors locked, 0 = doors unlocked */
+    int8_t doors_locked;                   /*<! 1 = doors locked, 0 = doors unlocked */
     int32_t doors_updated_ts;              /*<! Box timestamp doors last updated, in seconds */
     int32_t odometer_miles;                /*<! current odometer reading, in miles */
     int32_t odometer_updated_ts;           /*<! Box timestamp odometer last updated, in seconds */
@@ -115,7 +115,7 @@ typedef struct {
 } telemetry_t;
 
 struct maxbox {
-	telemetry_t* tel;
+    telemetry_t* tel;
     uint8_t base_mac[6];                                /*<! HW MAC address */
     int32_t etag;                                       /*<! etag for sequential operator card list update */
     char operator_card_list[MAX_OPERATOR_CARDS][9];     /*<! List of operator card IDs */

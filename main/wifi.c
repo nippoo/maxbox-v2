@@ -31,10 +31,9 @@ static int s_retry_num = 0;
 static int desired_connection_state = 0;
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
-                                int32_t event_id, void* event_data)
+                               int32_t event_id, void* event_data)
 {
-    if (event_base == WIFI_EVENT)
-    {
+    if (event_base == WIFI_EVENT) {
         if (event_id == WIFI_EVENT_STA_START) {
             ESP_LOGI(TAG, "WiFi started");
             s_retry_num = 0;
@@ -46,13 +45,10 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                 s_retry_num++;
                 ESP_LOGI(TAG, "Retrying AP connection: retry number %i out of %i", s_retry_num, MAX_WIFI_RETRY);
             } else {
-                if (s_retry_num >= MAX_WIFI_RETRY)
-                {
+                if (s_retry_num >= MAX_WIFI_RETRY) {
                     xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
                     ESP_LOGI(TAG, "Abandoning WiFi connection: retry count exceeded");
-                }
-                else if (desired_connection_state == 0)
-                {
+                } else if (desired_connection_state == 0) {
                     ESP_LOGI(TAG, "Disconnecting from WiFi");
                 }
                 xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
@@ -100,8 +96,8 @@ void wifi_init(void)
             },
         },
     };
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
     xEventGroupSetBits(s_wifi_event_group, WIFI_OPERATION_FINISHED_BIT);
 
     ESP_LOGI(TAG, "WiFi init complete");
@@ -112,13 +108,12 @@ void wifi_connect()
     desired_connection_state = 1;
 
     xEventGroupWaitBits(s_wifi_event_group,
-            WIFI_OPERATION_FINISHED_BIT,
-            pdFALSE,
-            pdFALSE,
-            20000/portTICK_PERIOD_MS);
+                        WIFI_OPERATION_FINISHED_BIT,
+                        pdFALSE,
+                        pdFALSE,
+                        20000 / portTICK_PERIOD_MS);
 
-    if (!(xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT)) // we're already connected
-    {
+    if (!(xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT)) { // we're already connected
         xEventGroupClearBits(s_wifi_event_group, WIFI_OPERATION_FINISHED_BIT);
         desired_connection_state = 1;
         s_retry_num = 0;
@@ -131,10 +126,10 @@ void wifi_connect()
         /* Waiting until either the connection is established (WIFI_CONNECTED_BIT) or connection failed for the maximum
          * number of re-tries (WIFI_FAIL_BIT). The bits are set by event_handler() (see above) */
         EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                pdFALSE,
-                pdFALSE,
-                MAX_WIFI_WAIT_MS);
+                                               WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
+                                               pdFALSE,
+                                               pdFALSE,
+                                               MAX_WIFI_WAIT_MS);
 
         /* xEventGroupWaitBits() returns the bits before the call returned, hence we can test which event actually
          * happened. */
@@ -153,16 +148,15 @@ void wifi_disconnect()
 {
     ESP_LOGI(TAG, "Waiting for WiFi operations to complete...");
     xEventGroupWaitBits(s_wifi_event_group,
-            WIFI_OPERATION_FINISHED_BIT,
-            pdFALSE,
-            pdFALSE,
-            20000/portTICK_PERIOD_MS);
+                        WIFI_OPERATION_FINISHED_BIT,
+                        pdFALSE,
+                        pdFALSE,
+                        20000 / portTICK_PERIOD_MS);
     ESP_LOGI(TAG, "WiFi operations complete, disconnecting");
 
     desired_connection_state = 0;
 
-    if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT)) // 
-    {
+    if ((xEventGroupGetBits(s_wifi_event_group) & WIFI_CONNECTED_BIT)) { //
         xEventGroupClearBits(s_wifi_event_group, WIFI_OPERATION_FINISHED_BIT);
         esp_wifi_stop();
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);

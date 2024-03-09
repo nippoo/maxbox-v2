@@ -34,10 +34,8 @@ void touch_handler(void *serial_no) // serial number is always 4 bytes long
 
     // first let's check if this is a tag in our operator card list
     int i;
-    for (i=0; i<MAX_OPERATOR_CARDS; i++)
-    {
-        if (strcmp(mb->operator_card_list[i], card_id) == 0)
-        {
+    for (i = 0; i < MAX_OPERATOR_CARDS; i++) {
+        if (strcmp(mb->operator_card_list[i], card_id) == 0) {
             ESP_LOGI(TAG, "Operator card detected");
             mb->lock_desired = !mb->lock_desired;
             event_return_t status = vehicle_un_lock();
@@ -56,8 +54,7 @@ void touch_task(void *args)
         // is there a tag?
         uint8_t* sn = rc522_get_tag();
 
-        if(sn)
-        {
+        if (sn) {
             touch_handler(sn);
         }
 

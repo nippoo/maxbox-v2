@@ -97,8 +97,7 @@ static void onewire_flush_rmt_rx_buf(const OneWireBus * bus)
 
     owb_rmt_driver_info * i = info_of_driver(bus);
 
-    while ((p = xRingbufferReceive(i->rb, &s, 0)))
-    {
+    while ((p = xRingbufferReceive(i->rb, &s, 0))) {
         ESP_LOGD(TAG, "flushing entry");
         vRingbufferReturnItem(i->rb, p);
     }
@@ -123,32 +122,25 @@ static owb_status _reset(const OneWireBus * bus, bool * is_present)
 
     onewire_flush_rmt_rx_buf(bus);
     rmt_rx_start(i->rx_channel, true);
-    if (rmt_write_items(i->tx_channel, tx_items, 1, true) == ESP_OK)
-    {
+    if (rmt_write_items(i->tx_channel, tx_items, 1, true) == ESP_OK) {
         size_t rx_size = 0;
         rmt_item32_t * rx_items = (rmt_item32_t *)xRingbufferReceive(i->rb, &rx_size, 100 / portTICK_PERIOD_MS);
 
-        if (rx_items)
-        {
-            if (rx_size >= (1 * sizeof(rmt_item32_t)))
-            {
+        if (rx_items) {
+            if (rx_size >= (1 * sizeof(rmt_item32_t))) {
 #ifdef OW_DEBUG
                 ESP_LOGI(TAG, "rx_size: %d", rx_size);
 
-                for (int i = 0; i < (rx_size / sizeof(rmt_item32_t)); i++)
-                {
+                for (int i = 0; i < (rx_size / sizeof(rmt_item32_t)); i++) {
                     ESP_LOGI(TAG, "i: %d, level0: %d, duration %d", i, rx_items[i].level0, rx_items[i].duration0);
                     ESP_LOGI(TAG, "i: %d, level1: %d, duration %d", i, rx_items[i].level1, rx_items[i].duration1);
                 }
 #endif
 
                 // parse signal and search for presence pulse
-                if ((rx_items[0].level0 == 0) && (rx_items[0].duration0 >= OW_DURATION_RESET - 2))
-                {
-                    if ((rx_items[0].level1 == 1) && (rx_items[0].duration1 > 0))
-                    {
-                        if (rx_items[1].level0 == 0)
-                        {
+                if ((rx_items[0].level0 == 0) && (rx_items[0].duration0 >= OW_DURATION_RESET - 2)) {
+                    if ((rx_items[0].level1 == 1) && (rx_items[0].duration1 > 0)) {
+                        if (rx_items[1].level0 == 0) {
                             _is_present = true;
                         }
                     }
@@ -156,16 +148,12 @@ static owb_status _reset(const OneWireBus * bus, bool * is_present)
             }
 
             vRingbufferReturnItem(i->rb, (void *)rx_items);
-        }
-        else
-        {
+        } else {
             // time out occurred, this indicates an unconnected / misconfigured bus
             ESP_LOGE(TAG, "rx_items == 0");
             res = OWB_STATUS_HW_ERROR;
         }
-    }
-    else
-    {
+    } else {
         // error in tx channel
         ESP_LOGE(TAG, "Error tx");
         res = OWB_STATUS_HW_ERROR;
@@ -187,14 +175,11 @@ static rmt_item32_t _encode_write_slot(uint8_t val)
 
     item.level0 = 0;
     item.level1 = 1;
-    if (val)
-    {
+    if (val) {
         // write "1" slot
         item.duration0 = OW_DURATION_1_LOW;
         item.duration1 = OW_DURATION_1_HIGH;
-    }
-    else
-    {
+    } else {
         // write "0" slot
         item.duration0 = OW_DURATION_0_LOW;
         item.duration1 = OW_DURATION_0_HIGH;
@@ -209,14 +194,12 @@ static owb_status _write_bits(const OneWireBus * bus, uint8_t out, int number_of
     rmt_item32_t tx_items[MAX_BITS_PER_SLOT + 1] = {0};
     owb_rmt_driver_info * info = info_of_driver(bus);
 
-    if (number_of_bits_to_write > MAX_BITS_PER_SLOT)
-    {
+    if (number_of_bits_to_write > MAX_BITS_PER_SLOT) {
         return OWB_STATUS_TOO_MANY_BITS;
     }
 
     // write requested bits as pattern to TX buffer
-    for (int i = 0; i < number_of_bits_to_write; i++)
-    {
+    for (int i = 0; i < number_of_bits_to_write; i++) {
         tx_items[i] = _encode_write_slot(out & 0x01);
         out >>= 1;
     }
@@ -227,12 +210,9 @@ static owb_status _write_bits(const OneWireBus * bus, uint8_t out, int number_of
 
     owb_status status = OWB_STATUS_NOT_SET;
 
-    if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_write+1, true) == ESP_OK)
-    {
+    if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_write + 1, true) == ESP_OK) {
         status = OWB_STATUS_OK;
-    }
-    else
-    {
+    } else {
         status = OWB_STATUS_HW_ERROR;
         ESP_LOGE(TAG, "rmt_write_items() failed");
     }
@@ -261,15 +241,13 @@ static owb_status _read_bits(const OneWireBus * bus, uint8_t *in, int number_of_
 
     owb_rmt_driver_info *info = info_of_driver(bus);
 
-    if (number_of_bits_to_read > MAX_BITS_PER_SLOT)
-    {
+    if (number_of_bits_to_read > MAX_BITS_PER_SLOT) {
         ESP_LOGE(TAG, "_read_bits() OWB_STATUS_TOO_MANY_BITS");
         return OWB_STATUS_TOO_MANY_BITS;
     }
 
     // generate requested read slots
-    for (int i = 0; i < number_of_bits_to_read; i++)
-    {
+    for (int i = 0; i < number_of_bits_to_read; i++) {
         tx_items[i] = _encode_read_slot();
     }
 
@@ -279,31 +257,24 @@ static owb_status _read_bits(const OneWireBus * bus, uint8_t *in, int number_of_
 
     onewire_flush_rmt_rx_buf(bus);
     rmt_rx_start(info->rx_channel, true);
-    if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_read+1, true) == ESP_OK)
-    {
+    if (rmt_write_items(info->tx_channel, tx_items, number_of_bits_to_read + 1, true) == ESP_OK) {
         size_t rx_size = 0;
         rmt_item32_t* rx_items = (rmt_item32_t *)xRingbufferReceive(info->rb, &rx_size, portMAX_DELAY);
 
-        if (rx_items)
-        {
+        if (rx_items) {
 #ifdef OW_DEBUG
-            for (int i = 0; i < rx_size / 4; i++)
-            {
+            for (int i = 0; i < rx_size / 4; i++) {
                 ESP_LOGI(TAG, "level: %d, duration %d", rx_items[i].level0, rx_items[i].duration0);
                 ESP_LOGI(TAG, "level: %d, duration %d", rx_items[i].level1, rx_items[i].duration1);
             }
 #endif
 
-            if (rx_size >= number_of_bits_to_read * sizeof(rmt_item32_t))
-            {
-                for (int i = 0; i < number_of_bits_to_read; i++)
-                {
+            if (rx_size >= number_of_bits_to_read * sizeof(rmt_item32_t)) {
+                for (int i = 0; i < number_of_bits_to_read; i++) {
                     read_data >>= 1;
                     // parse signal and identify logical bit
-                    if (rx_items[i].level1 == 1)
-                    {
-                        if ((rx_items[i].level0 == 0) && (rx_items[i].duration0 < OW_DURATION_SAMPLE))
-                        {
+                    if (rx_items[i].level1 == 1) {
+                        if ((rx_items[i].level0 == 0) && (rx_items[i].duration0 < OW_DURATION_SAMPLE)) {
                             // rising edge occured before 15us -> bit 1
                             read_data |= 0x80;
                         }
@@ -313,16 +284,12 @@ static owb_status _read_bits(const OneWireBus * bus, uint8_t *in, int number_of_
             }
 
             vRingbufferReturnItem(info->rb, (void *)rx_items);
-        }
-        else
-        {
+        } else {
             // time out occurred, this indicates an unconnected / misconfigured bus
             ESP_LOGE(TAG, "rx_items == 0");
             res = OWB_STATUS_HW_ERROR;
         }
-    }
-    else
-    {
+    } else {
         // error in tx channel
         ESP_LOGE(TAG, "Error tx");
         res = OWB_STATUS_HW_ERROR;
@@ -344,8 +311,7 @@ static owb_status _uninitialize(const OneWireBus *bus)
     return OWB_STATUS_OK;
 }
 
-static struct owb_driver rmt_function_table =
-{
+static struct owb_driver rmt_function_table = {
     .name = "owb_rmt",
     .uninitialize = _uninitialize,
     .reset = _reset,
@@ -383,10 +349,8 @@ static owb_status _init(owb_rmt_driver_info *info, gpio_num_t gpio_num,
     rmt_tx.tx_config.idle_level = 1;
     rmt_tx.tx_config.idle_output_en = true;
     rmt_tx.rmt_mode = RMT_MODE_TX;
-    if (rmt_config(&rmt_tx) == ESP_OK)
-    {
-        if (rmt_driver_install(rmt_tx.channel, 0, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK)
-        {
+    if (rmt_config(&rmt_tx) == ESP_OK) {
+        if (rmt_driver_install(rmt_tx.channel, 0, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK) {
             rmt_config_t rmt_rx = {0};
             rmt_rx.channel = info->rx_channel;
             rmt_rx.gpio_num = gpio_num;
@@ -396,42 +360,29 @@ static owb_status _init(owb_rmt_driver_info *info, gpio_num_t gpio_num,
             rmt_rx.rx_config.filter_en = true;
             rmt_rx.rx_config.filter_ticks_thresh = 30;
             rmt_rx.rx_config.idle_threshold = OW_DURATION_RX_IDLE;
-            if (rmt_config(&rmt_rx) == ESP_OK)
-            {
-                if (rmt_driver_install(rmt_rx.channel, 512, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK)
-                {
+            if (rmt_config(&rmt_rx) == ESP_OK) {
+                if (rmt_driver_install(rmt_rx.channel, 512, ESP_INTR_FLAG_LOWMED | ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_SHARED) == ESP_OK) {
                     rmt_get_ringbuf_handle(info->rx_channel, &info->rb);
                     status = OWB_STATUS_OK;
-                }
-                else
-                {
+                } else {
                     ESP_LOGE(TAG, "failed to install rx driver");
                 }
-            }
-            else
-            {
+            } else {
                 status = OWB_STATUS_HW_ERROR;
                 ESP_LOGE(TAG, "failed to configure rx, uninstalling rmt driver on tx channel");
                 rmt_driver_uninstall(rmt_tx.channel);
             }
-        }
-        else
-        {
+        } else {
             ESP_LOGE(TAG, "failed to install tx driver");
         }
-    }
-    else
-    {
+    } else {
         ESP_LOGE(TAG, "failed to configure tx");
     }
 
     // attach GPIO to previous pin
-    if (gpio_num < 32)
-    {
+    if (gpio_num < 32) {
         GPIO.enable_w1ts = (0x1 << gpio_num);
-    }
-    else
-    {
+    } else {
         GPIO.enable1_w1ts.data = (0x1 << (gpio_num - 32));
     }
 
@@ -457,8 +408,7 @@ OneWireBus * owb_rmt_initialize(owb_rmt_driver_info * info, gpio_num_t gpio_num,
              __func__, gpio_num, tx_channel, rx_channel);
 
     owb_status status = _init(info, gpio_num, tx_channel, rx_channel);
-    if (status != OWB_STATUS_OK)
-    {
+    if (status != OWB_STATUS_OK) {
         ESP_LOGE(TAG, "_init() failed with status %d", status);
     }
 

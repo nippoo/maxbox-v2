@@ -47,13 +47,12 @@ extern "C" {
 /**
  * @brief RMT driver information
  */
-typedef struct
-{
-  int tx_channel;     ///< RMT channel to use for TX
-  int rx_channel;     ///< RMT channel to use for RX
-  RingbufHandle_t rb; ///< Ring buffer handle
-  int gpio;           ///< OneWireBus GPIO
-  OneWireBus bus;     ///< OneWireBus instance
+typedef struct {
+    int tx_channel;     ///< RMT channel to use for TX
+    int rx_channel;     ///< RMT channel to use for RX
+    RingbufHandle_t rb; ///< Ring buffer handle
+    int gpio;           ///< OneWireBus GPIO
+    OneWireBus bus;     ///< OneWireBus instance
 } owb_rmt_driver_info;
 
 /**
