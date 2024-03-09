@@ -62,6 +62,7 @@ extern "C" {
 #define I2C_HOST_ID     0
 #define RFID_SPI_HOST_ID     SPI2_HOST
 #define LORA_SPI_HOST_ID     SPI3_HOST
+#define SIM_UART_PORT        UART_NUM_1
 
 // WiFi/HTTP
 #define ESP_WIFI_SSID      CONFIG_ESP_WIFI_SSID

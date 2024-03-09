@@ -7,7 +7,6 @@
 #include "driver/gpio.h"
 #include "esp_sleep.h"
 #include "driver/rtc_io.h"
-#include "esp_modem_api.h"
 #include "esp_event.h"
 #include "sdkconfig.h"
 #include "ctype.h"
@@ -19,19 +18,18 @@
 
 #define BUF_SIZE 1024
 
-esp_modem_dce_t *dce;
-esp_netif_t *esp_netif;
+ESP_EVENT_DEFINE_BASE(ESP_NMEA_EVENT);
 
-#define CHECK_ERR(cmd, success_action)  do {    \
-        esp_err_t ret = cmd;                    \
-        if (ret == ESP_OK) {                    \
-            success_action;                     \
-        } else {                                \
-            ESP_LOGE(TAG, "Failed with %s", ret == ESP_ERR_TIMEOUT ? "TIMEOUT":"ERROR");  \
-        } } while (0)
-
+static char *s_buffer;                                  /*!< Runtime buffer */
+static QueueHandle_t s_event_queue;                     /*!< UART event queue handle */
+static esp_event_loop_handle_t s_event_loop_hdl;        /*!< Event loop handle */
 
 const char *TAG = "MaxBox-SIM7600";
+
+static void send_sim_raw(char* data)
+{
+    uart_write_bytes(SIM_UART_PORT, data, sizeof(data));
+}
 
 static void config_gpio()
 {
@@ -43,7 +41,7 @@ static void config_gpio()
     gpio_set_level(SIM_PWRKEY_PIN, 0);
 }
 
-static void power_on_modem(esp_modem_dce_t *dce)
+static void power_on_modem()
 {
     // Power on the modem
     ESP_LOGI(TAG, "Sending SIM7600 power-on pulse");
@@ -52,35 +50,21 @@ static void power_on_modem(esp_modem_dce_t *dce)
     gpio_set_level(SIM_PWRKEY_PIN, 0);
 }
 
-static void wait_for_sync(esp_modem_dce_t *dce, uint8_t count)
-{
-    ESP_LOGI(TAG, "Waiting for SIM7600 to boot for up to %is...", count);
-    for (int i = 0; i < count; i++) {
-        if (esp_modem_sync(dce) == ESP_OK) {
-            ESP_LOGI(TAG, "SIM7600 UART OK");
-            return;
-        }
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
 static void gnss_start()
 {
-    char data[BUF_SIZE];
     ESP_LOGI(TAG, "Turning GPS on");
 
     // Turn GPS off first and wait 2s before restarting - there might be an error if not
     // CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
     vTaskDelay(pdMS_TO_TICKS(3000));
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=1,1", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    send_sim_raw("AT+CGPS=1,1");
     ESP_LOGI(TAG, "GPS enabled");
 }
 
 static void gnss_stop()
 {
-    char data[BUF_SIZE];
     ESP_LOGI(TAG, "Turning GPS off");
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPS=0", data, 500), ESP_LOGI(TAG, "OK. %s", data));
+    send_sim_raw("AT+CGPS=0");
     ESP_LOGI(TAG, "GPS disabled");
 }
 
@@ -101,45 +85,45 @@ static float nmea_to_decimal(const char *lat_long)
     return dec;
 }
 
-static void process_gngns_string(char *buf)
+static esp_err_t process_gngns_string(char *buf)
 {
     // Example string: $GNGNS,223254.00,5156.126739,N,00629.13328,W,AAA,10,1.0,18.9,46.0,,,V*49
-    char *p;
-    if (!(p = strstr(buf, "$GNGNS"))) {
-        return;
+    char *p = buf;
+    if (!(p = strstr(p, "$GNGNS"))) {
+        return ESP_FAIL;
     }
     if (!(p = strchr(p, ','))) {
-        return;
+        return ESP_FAIL;
     }
     if (!(p = strchr(++p, ','))) {
-        return;    // jump over UTC time
+        return ESP_FAIL;    // jump over UTC time
     }
     mb->tel->gnss_latitude = nmea_to_decimal(++p);
     if (!(p = strchr(p, ','))) {
-        return;
+        return ESP_FAIL;
     }
     if (*(++p) == 'S') {
         mb->tel->gnss_latitude = -mb->tel->gnss_latitude;
     }
     if (!(p = strchr(p, ','))) {
-        return;
+        return ESP_FAIL;
     }
     mb->tel->gnss_longitude = nmea_to_decimal(++p);
     if (!(p = strchr(p, ','))) {
-        return;
+        return ESP_FAIL;
     }
     if (*(++p) == 'W') {
         mb->tel->gnss_longitude = -mb->tel->gnss_longitude;
     }
     if (!(p = strchr(p, ','))) {
-        return;    // jump over mode indicator
+        return ESP_FAIL;    // jump over mode indicator
     }
     if (!(p = strchr(++p, ','))) {
-        return;
+        return ESP_FAIL;
     }
     mb->tel->gnss_nosats = atoi(++p);
     if (!(p = strchr(p, ','))) {
-        return;
+        return ESP_FAIL;
     }
 
     //    HACK: HDoP isn't the same as horizontal precision, but for this
@@ -147,70 +131,139 @@ static void process_gngns_string(char *buf)
     mb->tel->gnss_hdop = atof(++p) * 3.0;
 
     mb->tel->gnss_updated_ts = box_timestamp();
-}
-
-void gnss_task(void *args)
-{
-    char data[BUF_SIZE];
-
-    gnss_start();
-
-    // $GNGNS string only, every 10 seconds
-    CHECK_ERR(esp_modem_at(dce, "AT+CGPSINFOCFG=10,256", data, 500), ESP_LOGI(TAG, "OK. %s", data));
-
-    while (true) { // TODO: change this condition to detect low-power flag
-        /*
-        HACK: CGPSINFOCFG seems to be the only way to get multi-constellation NMEA strings out of
-        the SIM7600, and this automatically outputs every N seconds. There doesn't seem to be any way
-        to register a callback to the UART terminal with the esp_modem C API, so we use the new "raw"
-        API to send a blank string to the modem and read the response with a timeout
-        */
-        esp_modem_at_raw(dce, "", data, "", "", 12000);
-        ESP_LOGD(TAG, "Raw GNSS string: %s", data);
-        process_gngns_string(data);
-
-        vTaskDelay(9000 / portTICK_PERIOD_MS);
-    }
-
-    gnss_stop();
-
-    vTaskDelete(NULL);
-}
-
-esp_err_t sim7600_init()
-{
-    esp_modem_dce_config_t dce_config = ESP_MODEM_DCE_DEFAULT_CONFIG("internet");
-    esp_modem_dte_config_t dte_config = ESP_MODEM_DTE_DEFAULT_CONFIG();
-    esp_netif_config_t netif_ppp_config = ESP_NETIF_DEFAULT_PPP();
-    esp_netif = esp_netif_new(&netif_ppp_config);
-    assert(esp_netif);
-
-    dte_config.uart_config.tx_io_num = SIM_TXD_PIN;
-    dte_config.uart_config.rx_io_num = SIM_RXD_PIN;
-    dte_config.uart_config.rx_buffer_size = 512;
-    dte_config.uart_config.tx_buffer_size = 512;
-    dte_config.uart_config.event_queue_size = 30;
-    dte_config.task_stack_size = 4096;
-    dte_config.task_priority = 5;
-    dte_config.dte_buffer_size = 512;
-
-    ESP_LOGI(TAG, "Initializing esp_modem for SIM7600...");
-    dce = esp_modem_new_dev(ESP_MODEM_DCE_SIM7600, &dte_config, &dce_config, esp_netif);
-    assert(dce);
-
-    // Power on the modem
-    config_gpio();
-    power_on_modem(dce);
-
-    wait_for_sync(dce, 15);
-
-    xTaskCreate(gnss_task, "gnss_task", 8192, NULL, 4, NULL);
 
     return ESP_OK;
 }
 
-void sim7600_destroy()
+static void esp_handle_uart_pattern()
 {
-    esp_modem_destroy(dce);
-    esp_netif_destroy(esp_netif);
+    int pos = uart_pattern_pop_pos(SIM_UART_PORT);
+    if (pos != -1) {
+        /* read one line(include '\n') */
+        int read_len = uart_read_bytes(SIM_UART_PORT, s_buffer, pos + 1, 100 / portTICK_PERIOD_MS);
+        /* make sure the line is a standard string */
+        s_buffer[read_len] = '\0';
+        /* Send new line to handle */
+
+        if (process_gngns_string(s_buffer) != ESP_OK) {
+            ESP_LOGW(TAG, "GNSS decode line failed");
+        } else {
+            ESP_LOGI(TAG, "GNSS string successfully processed");
+        }
+    } else {
+        ESP_LOGW(TAG, "Pattern queue size too small");
+        uart_flush_input(SIM_UART_PORT);
+    }
+}
+static void nmea_parser_task_entry(void *arg)
+{
+    uart_event_t event;
+    while (1) {
+        if (xQueueReceive(s_event_queue, &event, pdMS_TO_TICKS(200))) {
+            switch (event.type) {
+            case UART_DATA:
+                break;
+            case UART_FIFO_OVF:
+                ESP_LOGW(TAG, "HW FIFO Overflow");
+                uart_flush(SIM_UART_PORT);
+                xQueueReset(s_event_queue);
+                break;
+            case UART_BUFFER_FULL:
+                ESP_LOGW(TAG, "Ring Buffer Full");
+                uart_flush(SIM_UART_PORT);
+                xQueueReset(s_event_queue);
+                break;
+            case UART_BREAK:
+                ESP_LOGW(TAG, "Rx Break");
+                break;
+            case UART_PARITY_ERR:
+                ESP_LOGE(TAG, "Parity Error");
+                break;
+            case UART_FRAME_ERR:
+                ESP_LOGE(TAG, "Frame Error");
+                break;
+            case UART_PATTERN_DET:
+                esp_handle_uart_pattern();
+                break;
+            default:
+                ESP_LOGW(TAG, "unknown uart event type: %d", event.type);
+                break;
+            }
+        }
+        /* Drive the event loop */
+        esp_event_loop_run(s_event_loop_hdl, pdMS_TO_TICKS(50));
+    }
+    vTaskDelete(NULL);
+}
+
+static esp_err_t wait_for_sync(uint8_t count)
+{
+    ESP_LOGI(TAG, "Waiting for SIM7600 to boot for up to %is...", count);
+
+    uart_disable_pattern_det_intr(SIM_UART_PORT);
+    uart_flush(SIM_UART_PORT);
+
+    char data[128];
+    int length = 0;
+
+    for (int i = 0; i < count; i++) {
+        send_sim_raw("AT\r");
+
+        uart_get_buffered_data_len(SIM_UART_PORT, (size_t*)&length);
+        if (length) {
+            uart_read_bytes(SIM_UART_PORT, data, length, 100);
+
+            if (strncmp(data, "AT", 2) == 0) {
+                uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\n', 1, 9, 0, 0);
+                ESP_LOGI(TAG, "SIM7600 successfully online");
+                return ESP_OK;
+            }
+            uart_flush(SIM_UART_PORT);
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+    uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\n', 1, 9, 0, 0);
+    ESP_LOGW(TAG, "SIM7600 failed to come online in timeout");
+    return ESP_FAIL;
+}
+
+void sim7600_init()
+{
+    s_buffer = calloc(1, 4096);
+
+    /* Install UART friver */
+    uart_config_t uart_config = {
+        .baud_rate = 115200,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT,
+    };
+
+    uart_driver_install(SIM_UART_PORT, 2048, 0, 30, &s_event_queue, 0);
+    uart_param_config(SIM_UART_PORT, &uart_config);
+    uart_set_pin(SIM_UART_PORT, SIM_TXD_PIN, SIM_RXD_PIN, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+
+    /* Set pattern interrupt, used to detect the end of a line */
+    uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\n', 1, 9, 0, 0);
+
+    /* Set pattern queue size */
+    uart_pattern_queue_reset(SIM_UART_PORT, 30);
+    uart_flush(SIM_UART_PORT);
+
+    /* Create Event loop */
+    esp_event_loop_args_t loop_args = {
+        .queue_size = 30,
+        .task_name = NULL
+    };
+
+    esp_event_loop_create(&loop_args, &s_event_loop_hdl);
+
+    xTaskCreate(nmea_parser_task_entry, "nmea_parser", 4096, NULL, 5, NULL);
+
+    config_gpio();
+    power_on_modem();
+    wait_for_sync(15);
 }
