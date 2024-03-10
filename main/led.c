@@ -3,8 +3,11 @@
 #include "pthread.h"
 #include "math.h"
 
+#include "driver/gpio.h"
+
 #include "led.h"
 #include "esp_log.h"
+#include "driver/i2c_master.h"
 
 #include "lp50xx.h"
 #include "ltr303.h"
@@ -24,27 +27,44 @@ static const char* TAG = "MaxBox-LED";
 
 void led_init(void)
 {
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = SDA_PIN,
+    i2c_master_bus_config_t i2c_mst_config = {
+        .clk_source = I2C_CLK_SRC_DEFAULT,
+        .i2c_port = I2C_HOST_ID,
         .scl_io_num = SCL_PIN,
-        .sda_pullup_en = GPIO_PULLUP_ENABLE,
-        .scl_pullup_en = GPIO_PULLUP_ENABLE,
-        .master.clk_speed = 400000,
+        .sda_io_num = SDA_PIN,
+        .glitch_ignore_cnt = 7,
+        .flags.enable_internal_pullup = true,
     };
 
-    i2c_param_config(I2C_HOST_ID, &conf);
-    i2c_driver_install(I2C_HOST_ID, conf.mode, 0, 0, ESP_INTR_FLAG_LOWMED);
+    i2c_master_bus_handle_t bus_handle;
+    ESP_ERROR_CHECK(i2c_new_master_bus(&i2c_mst_config, &bus_handle));
+
+    i2c_device_config_t lp50xx_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = 0x3C,
+        .scl_speed_hz = 400000,
+    };
+
+    i2c_master_dev_handle_t lp50xx_handle;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &lp50xx_config, &lp50xx_handle));
 
     const lp50xx_start_args_t lp50xx_start_args = {
-        .i2c_addr = 0x3C,
-        .i2c_host_id = I2C_HOST_ID,
+        .i2c_handle = lp50xx_handle,
     };
 
     lp50xx_init(&lp50xx_start_args);
 
+    i2c_device_config_t ltr303_config = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = 0x29,
+        .scl_speed_hz = 400000,
+    };
+
+    i2c_master_dev_handle_t ltr303_handle;
+    ESP_ERROR_CHECK(i2c_master_bus_add_device(bus_handle, &ltr303_config, &ltr303_handle));
+
     const ltr303_start_args_t ltr303_start_args = {
-        .i2c_host_id = I2C_HOST_ID,
+        .i2c_handle = ltr303_handle,
     };
 
     ltr303_init(&ltr303_start_args);

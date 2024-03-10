@@ -4,25 +4,24 @@
 extern "C" {
 #endif
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 #define LTR303_DEFAULT_I2C_ADDR             0x29
-#define LTR303_DEFAULT_I2C_HOST_ID          0
 #define LTR303_DEFAULT_I2C_TIMEOUT_MS       1000
 #define LTR303_DEFAULT_GAIN                 0
 #define LTR303_DEFAULT_INTEGRATION_TIME     0
 #define LTR303_DEFAULT_MEASUREMENT_RATE     3
 
 typedef struct {
-    i2c_port_t i2c_host_id;         /*<! LTR303 I2C host (Default: 0) */
-    uint8_t i2c_addr;               /*<! LTR303 I2C address (0x6C, Ox6D for -B) */
-    uint16_t i2c_timeout_ms;        /*<! LTR303 I2C timeout (Default: 1000) */
-    uint8_t gain;                   /*<! LTR303 gain valid values:
-                                        0: 1x, 1: 2x, 2: 4x, 3: 8x, 6: 48x, 7: 96x. */
-    uint8_t integration_time;       /*<! LTR303 ALS integration time values:
-                                        0 (default): 100ms, 1: 50ms, 2: 200ms, 3: 400ms, 4: 150ms, 5: 250ms, 6: 300ms, 7: 350ms */
-    uint8_t measurement_rate;       /*<! LTR303 ALS integration time values:
-                                        0: 50ms, 1: 100ms, 2: 200ms, 3 (default): 500ms, 4: 1000ms, 5-7: 2000ms */
+    i2c_master_dev_handle_t i2c_handle; /*<! LTR303 I2C device handle */
+    uint8_t i2c_addr;                   /*<! LTR303 I2C address (0x6C, Ox6D for -B) */
+    uint16_t i2c_timeout_ms;            /*<! LTR303 I2C timeout (Default: 1000) */
+    uint8_t gain;                       /*<! LTR303 gain valid values:
+                                            0: 1x, 1: 2x, 2: 4x, 3: 8x, 6: 48x, 7: 96x. */
+    uint8_t integration_time;           /*<! LTR303 ALS integration time values:
+                                            0 (default): 100ms, 1: 50ms, 2: 200ms, 3: 400ms, 4: 150ms, 5: 250ms, 6: 300ms, 7: 350ms */
+    uint8_t measurement_rate;           /*<! LTR303 ALS integration time values:
+                                            0: 50ms, 1: 100ms, 2: 200ms, 3 (default): 500ms, 4: 1000ms, 5-7: 2000ms */
 } ltr303_config_t;
 
 typedef ltr303_config_t ltr303_start_args_t;

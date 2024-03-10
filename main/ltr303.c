@@ -8,7 +8,7 @@
 #include "esp_log.h"
 #include "math.h"
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 #include "ltr303.h"
 
@@ -35,8 +35,7 @@ static esp_err_t ltr303_write(uint8_t addr, uint8_t val)
 {
     uint8_t write_buf[2] = {addr, val};
 
-    esp_err_t ret = i2c_master_write_to_device(hndl->config->i2c_host_id,
-                                               hndl->config->i2c_addr, write_buf, sizeof(write_buf), hndl->config->i2c_timeout_ms / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_transmit(hndl->config->i2c_handle, write_buf, sizeof(write_buf), hndl->config->i2c_timeout_ms / portTICK_PERIOD_MS);
 
     return ret;
 }
@@ -45,8 +44,8 @@ static uint8_t ltr303_read(uint8_t addr)
 {
     uint8_t buffer[2];
 
-    esp_err_t ret = i2c_master_write_read_device(hndl->config->i2c_host_id,
-                                                 hndl->config->i2c_addr, &addr, 1, buffer, 1, hndl->config->i2c_timeout_ms / portTICK_PERIOD_MS);
+    esp_err_t ret = i2c_master_transmit_receive(hndl->config->i2c_handle, &addr, 1, buffer, 1, hndl->config->i2c_timeout_ms / portTICK_PERIOD_MS);
+
     if (ret == ESP_OK) {
         uint8_t res = buffer[0];
         return res;
@@ -85,9 +84,8 @@ esp_err_t ltr303_init(const ltr303_config_t* config)
     }
 
     // copy config considering defaults
-    hndl->config->i2c_addr         = config->i2c_addr == 0 ? LTR303_DEFAULT_I2C_ADDR : config->i2c_addr;
+    hndl->config->i2c_handle       = config->i2c_handle;
     hndl->config->i2c_timeout_ms   = config->i2c_timeout_ms == 0 ? LTR303_DEFAULT_I2C_TIMEOUT_MS : config->i2c_timeout_ms;
-    hndl->config->i2c_host_id      = config->i2c_host_id == 0 ? LTR303_DEFAULT_I2C_HOST_ID : config->i2c_host_id;
 
     uint8_t whoami = ltr303_whoami();
 

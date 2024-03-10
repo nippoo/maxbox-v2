@@ -4,10 +4,9 @@
 extern "C" {
 #endif
 
-#include "driver/i2c.h"
+#include "driver/i2c_master.h"
 
 #define LP50XX_DEFAULT_I2C_ADDR             0x28
-#define LP50XX_DEFAULT_I2C_HOST_ID          0
 #define LP50XX_DEFAULT_I2C_TIMEOUT_MS       1000
 #define LP50XX_DEFAULT_MAX_CURRENT          0
 #define LP50XX_DEFAULT_POWERSAVE_ENABLED    0
@@ -16,13 +15,13 @@ extern "C" {
 
 
 typedef struct {
-    i2c_port_t i2c_host_id;         /*<! lp50xx I2C host (Default: 0) */
-    uint8_t i2c_addr;               /*<! lp50xx I2C address (0x6C, Ox6D for -B) */
-    uint16_t i2c_timeout_ms;        /*<! lp50xx I2C timeout (Default: 1000) */
-    uint8_t max_current;            /*<! Maximum allowable LED current: 0=25mA, 1=35mA */
-    bool powersave_enabled;         /*<! Auto powersave enabled */
-    bool log_dim_enabled;           /*<! 0 = linear dimming, 1 = log-scale dimming */
-    bool pwm_dim_enabled;           /*<! PWM dimming enabled */
+    i2c_master_dev_handle_t i2c_handle; /*<! lp50xx I2C device handle */
+    uint8_t i2c_addr;                   /*<! lp50xx I2C address (0x6C, Ox6D for -B) */
+    uint16_t i2c_timeout_ms;            /*<! lp50xx I2C timeout (Default: 1000) */
+    uint8_t max_current;                /*<! Maximum allowable LED current: 0=25mA, 1=35mA */
+    bool powersave_enabled;             /*<! Auto powersave enabled */
+    bool log_dim_enabled;               /*<! 0 = linear dimming, 1 = log-scale dimming */
+    bool pwm_dim_enabled;               /*<! PWM dimming enabled */
 } lp50xx_config_t;
 
 typedef lp50xx_config_t lp50xx_start_args_t;
