@@ -39,8 +39,6 @@ static void config_gpio()
 static void send_sim_raw(char* data)
 {
     uart_write_bytes(SIM_UART_PORT, data, strlen(data));
-    ESP_LOGI(TAG, "Written data, %i bytes: %s", strlen(data), data);
-
 }
 
 static esp_err_t send_sim_at(char* data)
@@ -55,14 +53,12 @@ static esp_err_t send_sim_at(char* data)
     uart_get_buffered_data_len(SIM_UART_PORT, (size_t*)&length);
     if (length) {
         uart_read_bytes(SIM_UART_PORT, data_recv, length, 100);
-        ESP_LOGI(TAG, "Data returned, %i bytes: %s", length, data_recv);
         uart_flush(SIM_UART_PORT);
         uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\r', 1, 9, 0, 0);
         return ESP_OK;
     }
     uart_flush(SIM_UART_PORT);
     uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\r', 1, 9, 0, 0);
-    ESP_LOGW(TAG, "No data returned from SIM7600", data);
     return ESP_FAIL;
 }
 
@@ -74,27 +70,13 @@ static esp_err_t wait_for_sync(uint8_t count)
     uart_disable_pattern_det_intr(SIM_UART_PORT);
     uart_flush(SIM_UART_PORT);
 
-    char data[128];
-    int length = 0;
-
     for (int i = 0; i < count; i++) {
-        send_sim_raw("AT\r");
-
-        uart_get_buffered_data_len(SIM_UART_PORT, (size_t*)&length);
-        if (length) {
-            uart_read_bytes(SIM_UART_PORT, data, length, 100);
-            if (strncmp(data, "AT", 2) == 0) {
-                uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\r', 1, 9, 0, 0);
-                ESP_LOGI(TAG, "SIM7600 successfully online");
-                vTaskDelay(pdMS_TO_TICKS(3000));
-                uart_flush(SIM_UART_PORT);
-                return ESP_OK;
-            }
-            uart_flush(SIM_UART_PORT);
+        if (send_sim_at("AT\r") == ESP_OK) {
+            ESP_LOGI(TAG, "SIM7600 successful boot");
+            return ESP_OK;
         }
-        vTaskDelay(pdMS_TO_TICKS(1000));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
-    uart_enable_pattern_det_baud_intr(SIM_UART_PORT, '\r', 1, 9, 0, 0);
     ESP_LOGW(TAG, "SIM7600 failed to come online in timeout");
     return ESP_FAIL;
 }
@@ -102,22 +84,13 @@ static esp_err_t wait_for_sync(uint8_t count)
 static void gnss_start()
 {
     ESP_LOGI(TAG, "Turning GPS on");
-    send_sim_at("AT\r");
     send_sim_at("AT+CGPS=1,1\r");
     send_sim_at("AT+CGPSINFOCFG=10,256\r");
     ESP_LOGI(TAG, "GPS enabled");
 }
 
-static void gnss_stop()
-{
-    ESP_LOGI(TAG, "Turning GPS off");
-    send_sim_raw("AT+CGPS=0");
-    ESP_LOGI(TAG, "GPS disabled");
-}
-
 static void reset_modem()
 {
-    // Power on the modem
     ESP_LOGI(TAG, "Sending SIM7600 reset pulse");
     gpio_set_level(SIM_RESET_PIN, 1);
     vTaskDelay(200 / portTICK_PERIOD_MS);
@@ -179,8 +152,6 @@ static float nmea_to_decimal(const char *lat_long)
 static esp_err_t process_gngns_string(char *buf)
 {
     // Example string: $GNGNS,223254.00,5156.126739,N,00629.13328,W,AAA,10,1.0,18.9,46.0,,,V*49
-    ESP_LOGI(TAG, "SIM7600 string %s", buf);
-
     char *p = buf;
     if (!(p = strstr(p, "$GNGNS"))) {
         return ESP_FAIL;
@@ -257,29 +228,29 @@ static void nmea_parser_task_entry(void *arg)
             case UART_DATA:
                 break;
             case UART_FIFO_OVF:
-                ESP_LOGW(TAG, "HW FIFO Overflow");
+                ESP_LOGW(TAG, "HW FIFO overflow");
                 uart_flush(SIM_UART_PORT);
                 xQueueReset(s_event_queue);
                 break;
             case UART_BUFFER_FULL:
-                ESP_LOGW(TAG, "Ring Buffer Full");
+                ESP_LOGW(TAG, "Ring buffer full");
                 uart_flush(SIM_UART_PORT);
                 xQueueReset(s_event_queue);
                 break;
             case UART_BREAK:
-                ESP_LOGW(TAG, "Rx Break");
+                ESP_LOGW(TAG, "RX break");
                 break;
             case UART_PARITY_ERR:
-                ESP_LOGE(TAG, "Parity Error");
+                ESP_LOGE(TAG, "Parity error");
                 break;
             case UART_FRAME_ERR:
-                ESP_LOGE(TAG, "Frame Error");
+                ESP_LOGE(TAG, "Frame error");
                 break;
             case UART_PATTERN_DET:
                 esp_handle_uart_pattern();
                 break;
             default:
-                ESP_LOGW(TAG, "unknown uart event type: %d", event.type);
+                ESP_LOGW(TAG, "Unknown UART event type: %d", event.type);
                 break;
             }
         }
@@ -289,11 +260,30 @@ static void nmea_parser_task_entry(void *arg)
     vTaskDelete(NULL);
 }
 
+static void sim7600_power_watchdog_task(void *arg)
+{
+    power_on_modem(); // initial poweron on first boot to get a fix regardless of battery voltage, and/or reset
+
+    while (1) {
+        vTaskDelay(pdMS_TO_TICKS(GNSS_POWERSAVE_INTERVAL_MS));
+        if ((mb->tel->aux_battery_voltage > CONFIG_BATTERY_VOLTAGE_THRESHOLD) & !gpio_get_level(SIM_STATUS_PIN)) {
+            ESP_LOGI(TAG, "Battery voltage above threshold, powering on SIM7600");
+            power_on_modem();
+        } else if ((mb->tel->aux_battery_voltage <= CONFIG_BATTERY_VOLTAGE_THRESHOLD) & gpio_get_level(SIM_STATUS_PIN)) {
+            ESP_LOGI(TAG, "Battery voltage below threshold, powering off SIM7600");
+            power_off_modem();
+        }
+    }
+    vTaskDelete(NULL);
+}
+
 void sim7600_init()
 {
+    config_gpio();
+
     s_buffer = calloc(1, 4096);
 
-    /* Install UART friver */
+    /* Install UART driver */
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -323,7 +313,5 @@ void sim7600_init()
     esp_event_loop_create(&loop_args, &s_event_loop_hdl);
 
     xTaskCreate(nmea_parser_task_entry, "nmea_parser", 4096, NULL, 5, NULL);
-
-    config_gpio();
-    power_on_modem();
+    xTaskCreate(sim7600_power_watchdog_task, "sim7600_power_watchdog", 4096, NULL, 2, NULL);
 }

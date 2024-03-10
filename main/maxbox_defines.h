@@ -9,15 +9,17 @@ extern "C" {
 
 // User config
 
-#define TAG_CHECK_INTERVAL_MS           500
-#define LORA_TELEMETRY_INTERVAL_MS      48000
-#define WIFI_TELEMETRY_INTERVAL_MS      100000
+#define TAG_CHECK_INTERVAL_MS               500
+#define LORA_TELEMETRY_INTERVAL_MS          48000
+#define WIFI_TELEMETRY_INTERVAL_MS          100000
+#define GNSS_POWERSAVE_INTERVAL_MS          120000
 
-#define CONFIG_LORAWAN_DATARATE         TTN_DR_EU868_SF8
+#define CONFIG_LORAWAN_DATARATE             TTN_DR_EU868_SF8
 
-#define CONFIG_NIGHT_MODE_THRESHOLD_LUX 1000
+#define CONFIG_NIGHT_MODE_THRESHOLD_LUX     1000
+#define CONFIG_BATTERY_VOLTAGE_THRESHOLD    12.4 // voltage threshold to turn on power saving features (not on charger)
 
-#define MAX_OPERATOR_CARDS              32
+#define MAX_OPERATOR_CARDS                  32
 
 // GPIO
 
