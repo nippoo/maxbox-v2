@@ -206,6 +206,8 @@ void led_task(void *args)
 
         elapsed_ms += 20;
         vTaskDelay(pdMS_TO_TICKS(20));
+
+        gpio_set_level(LED_STATUS_PIN, gpio_get_level(SIM_STATUS_PIN));
     }
 
     vTaskDelete(NULL);
