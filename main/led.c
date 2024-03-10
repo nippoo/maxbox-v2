@@ -168,6 +168,10 @@ void led_task(void *args)
                     lp50xx_set_bank_control(1);
                     lp50xx_set_global_off(0);
                     break;
+                case LED_FIRMWARE:
+                    lp50xx_set_bank_control(1);
+                    lp50xx_set_global_off(0);
+                    break;
                 default:
                     break;
                 }

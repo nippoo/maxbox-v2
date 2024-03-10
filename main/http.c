@@ -128,6 +128,75 @@ static esp_err_t _http_set_headers(esp_http_client_handle_t http_client)
     return ESP_OK;
 }
 
+void firmware_update(void* pxParameters)
+{
+    esp_err_t ota_finish_err = ESP_OK;
+
+    ESP_LOGI(TAG, "Updating firmware from %s", firmware_update_url);
+
+    esp_http_client_config_t config = {
+        .url = firmware_update_url,
+        .crt_bundle_attach = esp_crt_bundle_attach,
+        .keep_alive_enable = true,
+    };
+
+    esp_https_ota_config_t ota_config = {
+        .http_config = &config,
+        .http_client_init_cb = _http_set_headers,
+    };
+
+    esp_https_ota_handle_t https_ota_handle = NULL;
+    esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed");
+        goto ota_end;
+    }
+
+    esp_app_desc_t app_desc;
+    err = esp_https_ota_get_img_desc(https_ota_handle, &app_desc);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed");
+        goto ota_end;
+    }
+
+    while (1) {
+        err = esp_https_ota_perform(https_ota_handle);
+        if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
+            break;
+        }
+        // esp_https_ota_perform returns after every read operation which gives user the ability to
+        // monitor the status of OTA upgrade by calling esp_https_ota_get_image_len_read, which gives length of image
+        // data read so far.
+        ESP_LOGD(TAG, "Image bytes read: %d", esp_https_ota_get_image_len_read(https_ota_handle));
+    }
+
+    if (esp_https_ota_is_complete_data_received(https_ota_handle) != true) {
+        // the OTA image was not completely received and user can customise the response to this situation.
+        ESP_LOGE(TAG, "Complete data was not received.");
+    } else {
+        ota_finish_err = esp_https_ota_finish(https_ota_handle);
+        if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
+            ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
+            vTaskDelay(1000 / portTICK_PERIOD_MS);
+            esp_restart();
+        } else {
+            if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {
+                ESP_LOGE(TAG, "Image validation failed, image is corrupted");
+            }
+            ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed 0x%x", ota_finish_err);
+            goto ota_end;
+
+        }
+    }
+
+ota_end:
+    esp_https_ota_abort(https_ota_handle);
+    ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed");
+    mb_complete_event(EVT_FIRMWARE, BOX_ERROR);
+    vTaskDelete(NULL);
+}
+
+
 event_return_t json_return_handler(char* result)
 {
     event_return_t status = BOX_ERROR;
@@ -178,14 +247,13 @@ event_return_t json_return_handler(char* result)
         }
     }
 
-    // if(cJSON_GetObjectItem(result_json, "firmware_update_url"))
-    // {
-    //     char *fw_url = cJSON_GetObjectItem(result_json, "firmware_update_url")->valuestring;
-    //     strcpy(firmware_update_url, fw_url);
-    //     ESP_LOGI(TAG, "Firmware update detected, updating from URL %s", firmware_update_url);
-    //     xEventGroupSetBits(s_status_group, FIRMWARE_UPDATING_BIT);
-    //     xTaskCreate(firmware_update, "firmware_update", 8192, NULL, 5, NULL);
-    // }
+    if (cJSON_GetObjectItem(result_json, "firmware_update_url")) {
+        mb_begin_event(EVT_FIRMWARE);
+        char *fw_url = cJSON_GetObjectItem(result_json, "firmware_update_url")->valuestring;
+        strcpy(firmware_update_url, fw_url);
+        ESP_LOGI(TAG, "Firmware update detected, updating from URL %s", firmware_update_url);
+        xTaskCreate(firmware_update, "firmware_update", 8192, NULL, 5, NULL);
+    }
 
     cJSON_Delete(result_json);
 
@@ -257,72 +325,4 @@ void http_send(char* card_id)
     }
 
     xTaskCreate(&http_auth_rfid, "http_auth_rfid", 8192, req, 6, NULL);
-}
-
-void firmware_update(void* pxParameters)
-{
-    esp_err_t ota_finish_err = ESP_OK;
-
-    ESP_LOGI(TAG, "Updating firmware from %s", firmware_update_url);
-
-    esp_http_client_config_t config = {
-        .url = firmware_update_url,
-        .crt_bundle_attach = esp_crt_bundle_attach,
-        .keep_alive_enable = true,
-    };
-
-    esp_https_ota_config_t ota_config = {
-        .http_config = &config,
-        .http_client_init_cb = _http_set_headers,
-    };
-
-    esp_https_ota_handle_t https_ota_handle = NULL;
-    esp_err_t err = esp_https_ota_begin(&ota_config, &https_ota_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "ESP HTTPS OTA Begin failed");
-        goto ota_end;
-    }
-
-    esp_app_desc_t app_desc;
-    err = esp_https_ota_get_img_desc(https_ota_handle, &app_desc);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "esp_https_ota_read_img_desc failed");
-        goto ota_end;
-    }
-
-    while (1) {
-        err = esp_https_ota_perform(https_ota_handle);
-        if (err != ESP_ERR_HTTPS_OTA_IN_PROGRESS) {
-            break;
-        }
-        // esp_https_ota_perform returns after every read operation which gives user the ability to
-        // monitor the status of OTA upgrade by calling esp_https_ota_get_image_len_read, which gives length of image
-        // data read so far.
-        ESP_LOGD(TAG, "Image bytes read: %d", esp_https_ota_get_image_len_read(https_ota_handle));
-    }
-
-    if (esp_https_ota_is_complete_data_received(https_ota_handle) != true) {
-        // the OTA image was not completely received and user can customise the response to this situation.
-        ESP_LOGE(TAG, "Complete data was not received.");
-    } else {
-        ota_finish_err = esp_https_ota_finish(https_ota_handle);
-        if ((err == ESP_OK) && (ota_finish_err == ESP_OK)) {
-            ESP_LOGI(TAG, "ESP_HTTPS_OTA upgrade successful. Rebooting ...");
-            vTaskDelay(1000 / portTICK_PERIOD_MS);
-            esp_restart();
-        } else {
-            if (ota_finish_err == ESP_ERR_OTA_VALIDATE_FAILED) {
-                ESP_LOGE(TAG, "Image validation failed, image is corrupted");
-            }
-            ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed 0x%x", ota_finish_err);
-            goto ota_end;
-
-        }
-    }
-
-ota_end:
-    esp_https_ota_abort(https_ota_handle);
-    ESP_LOGE(TAG, "ESP_HTTPS_OTA upgrade failed");
-
-    vTaskDelete(NULL);
 }

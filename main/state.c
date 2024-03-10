@@ -41,7 +41,7 @@ void mb_begin_event(box_event_t box_event)
         break;
     case EVT_FIRMWARE:
         ESP_LOGI(TAG, "State change requested: FIRMWARE");
-        bits = (BOOTING_BIT | TOUCHED_BIT | TELEMETRY_BIT | FW_UPDATING_BIT);
+        bits = (BOOTING_BIT | TOUCHED_BIT | FW_UPDATING_BIT);
         break;
     case EVT_BOOT:
         ESP_LOGI(TAG, "State change requested: BOOT");
@@ -116,7 +116,7 @@ void mb_complete_event(box_event_t box_event, event_return_t return_status)
         xEventGroupSetBits(s_box_event_group, TOUCHED_DONE_BIT);
         break;
     case EVT_TELEMETRY:
-        if (!(xEventGroupGetBits(s_box_event_group) & TOUCHED_BIT)) {
+        if (!(xEventGroupGetBits(s_box_event_group) & (TOUCHED_BIT | FW_UPDATING_BIT))) {
             wifi_disconnect();
         }
         switch (return_status) {
@@ -142,6 +142,10 @@ void mb_complete_event(box_event_t box_event, event_return_t return_status)
         xEventGroupSetBits(s_box_event_group, BOOTING_DONE_BIT);
         break;
     case EVT_FIRMWARE: // note: this will only happen if the firmware update is unsuccessful, otherwise the box will reboot
+        wifi_disconnect();
+        led_update(LED_ERROR);
+        vTaskDelay(4000 / portTICK_PERIOD_MS);
+        led_update(LED_IDLE);
         xEventGroupClearBits(s_box_event_group, FW_UPDATING_BIT);
         xEventGroupSetBits(s_box_event_group, FW_UPDATING_DONE_BIT);
         break;
